@@ -1,0 +1,16 @@
+[project]
+name = "ds-gradu"
+version = "0.1.0"
+description = "Retrieval-Augmented Prediction (RAP) for tabular foundation models under heavy class imbalance — evaluated on financial fraud detection datasets"
+requires-python = ">=3.12"
+dependencies = [
+    "catboost>=1.2.10",
+    "duckdb>=1.5.2",
+    "numpy>=2.4.4",
+    "pandas>=3.0.2",
+    "pyarrow>=23.0.1",
+    "scikit-learn>=1.8.0",
+    "tabicl>=2.0.3",
+    "tabpfn>=8",
+    "xgboost>=3.2.0",
+]

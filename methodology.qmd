@@ -1,0 +1,206 @@
+---
+title: "Methodology"
+subtitle: "Retrieval-Augmented Prediction for Tabular Foundation Models under Heavy Class Imbalance"
+date: today
+format:
+  typst:
+    toc: true
+    section-numbering: "1.1.1"
+bibliography: /home/theo/thesis-lit/bibliography.bib
+csl: null
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<!--
+BACKBONE DRAFT — chapter scaffold for the methodology.
+Conventions:
+  - Prose is thesis-ready where the design is settled; [TODO] marks an open
+    decision or a number to be filled from results.
+  - All quantitative claims must cite a source or an experiment run ID
+    (CLAUDE.md, Writing Style). Placeholders flag where those go.
+  - Authoritative source for pipeline behaviour is CLAUDE.md + src/, not the
+    older scratchpad/experiment-plan.md.
+-->
+
+# Overview
+
+This chapter describes the experimental methodology used to evaluate **Retrieval-Augmented Prediction (RAP)**, a test-time context-construction strategy for in-context-learning (ICL) tabular foundation models (FTMs) applied to fraud detection under heavy class imbalance. The chapter is organised around the components that together define a reproducible experiment: the problem formulation (@sec-problem), the datasets and their preprocessing (@sec-data), the splitting and test-set sampling protocol (@sec-protocol), the models under comparison (@sec-models), the context-construction conditions that operationalise RAP (@sec-conditions), the evaluation metrics (@sec-metrics), the full experimental grid (@sec-grid), and the implementation and reproducibility infrastructure (@sec-repro).
+
+The design follows a controlled-ablation logic. Each research question maps to a comparison between two conditions that differ in exactly one factor, so that an observed difference in performance can be attributed to that factor alone. The conditions form a chain — random context, ratio-balanced context, retrieved context, and retrieved-plus-balanced context — that isolates first the effect of class-ratio control and then the effect of retrieval relevance.
+
+# Problem formulation {#sec-problem}
+
+Tabular foundation models such as TabPFN [@hollmann2025accurate_tabular_foundation_model; @hollmann2023tabpfn] and TabICL [@qu2026tabiclv2] perform classification by in-context learning: rather than fitting parameters by gradient descent, they take a labelled *context* (a set of training rows and their labels) together with a set of query rows, and produce predictions in a single forward pass. This builds on the prior-fitted-network framework, in which a transformer is meta-trained to approximate Bayesian inference over a prior of synthetic datasets [@muller2022transformers_bayesian_inference]. A practical consequence is a bounded context budget: the model was meta-trained over datasets up to a certain size, and inference quality and memory cost degrade outside that range. The context limits used in this work are reported in @sec-models.
+
+Under heavy class imbalance the context budget becomes the central difficulty. When the positive (fraud) rate is on the order of $0.1$–$1\%$, a context drawn uniformly at random from the training set contains almost no positive examples — at a $0.17\%$ fraud rate, a $10{,}000$-row context is expected to hold roughly $17$ fraud rows, and at the per-batch level many contexts may contain none. The model is then asked to characterise the minority class from a handful of examples, or none at all.
+
+RAP addresses this at **test time**, leaving the pre-trained model untouched. For each test batch it constructs a context that is (i) *relevant* — retrieved by nearest-neighbour search around the batch so the context resembles the queries — and (ii) *label-balanced* — oversampled to a controlled fraud ratio so the minority class is adequately represented. The research questions decompose these two effects:
+
+| RQ | Question | Comparison |
+|----|----------|------------|
+| RQ1 | How do FTMs compare to GBDTs under naive random subsampling? | C1: FTM vs GBDT |
+| RQ2 | Does random-subsample performance degrade as dataset size grows? | C1 across size tiers |
+| RQ3 | Does retrieval-based context improve over random subsampling? | C3 vs C1 |
+| RQ4 | What is the effect of the in-context fraud ratio? | C2 vs C1; C4 ratio sweep |
+
+: Research questions and the condition comparisons that answer them. {#tbl-rq}
+
+# Datasets {#sec-data}
+
+## Selection and characteristics
+
+Six publicly available transaction datasets form the **formal grid**, chosen to span fraud-detection settings while holding the supervised binary-classification task fixed. They vary along two axes that matter for the imbalance hypothesis: dataset size (from $\sim\!285$k to $6.3$M rows) and fraud prevalence ($0.13\%$ to $1.5\%$). A seventh dataset, AI Banking 2025, is used for pipeline development only and never enters the reported results: at a $28\%$ fraud rate it is nearly balanced and therefore unsuitable as an imbalance benchmark.
+
+| Dataset | Rows | Features | Fraud % | Source | Role |
+|---|---|---|---|---|---|
+| eu_cc (ULB) | 284,807 | 30 | 0.17% | Kaggle ULB credit-card | Formal grid |
+| cc_2025 | 500,000 | 11 | 1.5% | Synthetic | Formal grid (degenerate) |
+| banksim | 594,643 | 7 | 1.2% | BankSim simulator [@patil2024graphdb_banksim] | Formal grid |
+| paysim | 6,354,407 | 7 | 0.13% | PaySim simulator [@alumona2025paysim_ml] | Formal grid |
+| fifar | 602,961 | 29 | 1.2% | FiFAR [@alves2023fifar_learning_to_defer] | Formal grid |
+| baf | 1,000,000 | 30 | 1.1% | Bank Account Fraud [@jesus2022baf_arxiv] | Formal grid |
+| ai_banking | 10,000 | 6 | 28.4% | Synthetic | Dev only |
+
+: Datasets. Full provenance and exploratory analysis appear in the companion data documentation. {#tbl-datasets}
+
+Two datasets require explicit caveats that the thesis must state rather than bury:
+
+- **cc_2025 is degenerate.** Its fraud labels are statistically independent of every feature: the distributions of `Amount`, `Distance`, `Is_International` and the remaining columns are identical for fraud and non-fraud rows. Consequently every model — FTM and GBDT alike — scores PR-AUC $\approx$ the fraud rate ($0.015$) and ROC-AUC $\approx 0.50$, i.e. random-chance performance. It is retained in the results not as a benchmark but as a documented example of a poorly constructed synthetic dataset; no further runs are queued for it beyond the C1/C2 results already collected.
+- **BankSim contains entity identifiers.** The `customer` column is an entity ID ($\sim\!4{,}100$ customers over $594$k rows); its split treatment is discussed in @sec-protocol.
+
+## Preprocessing
+
+All datasets are ingested into a single local DuckDB database; the loader returns feature matrices and binary labels as NumPy arrays. Preprocessing is deliberately minimal and uniform:
+
+- **Identifier and leakage columns are dropped** per dataset (e.g. account-name columns in PaySim, the post-hoc `isFlaggedFraud` flag, zip codes in BankSim, analyst-decision and model-score columns in FiFAR).
+- **Categorical columns are ordinal-encoded** to integer codes; the FTMs and GBDTs both consume integer-coded categoricals.
+- **Features are returned unscaled.** Tree-based GBDTs are scale-invariant, and FTM context rows are passed unscaled. Standardisation is applied *only* to build the nearest-neighbour index for retrieval (C3/C4); see @sec-conditions.
+- **Time columns are kept as features.** `Time` (eu_cc) and `step` (BankSim, PaySim) are retained under the random split rather than dropped or used to define the split. This is a deliberate choice — under a random split they carry weak signal and removing them would discard information available at prediction time — and the temporal-generalisation question is instead handled as a separate ablation (@sec-protocol).
+
+# Splitting and evaluation protocol {#sec-protocol}
+
+## Train/test split
+
+The default split is a seeded, stratified $80/20$ train/test partition, with two principled exceptions:
+
+- **BankSim uses a grouped split by `customer`.** Because `customer` is an encoded entity ID and the same customer appears in many rows, a row-level random split would place a customer's transactions on both sides of the partition; the model could then memorise the customer code as a near-perfect label key, inflating test performance through leakage. A `GroupShuffleSplit` instead assigns each customer wholly to train or to test. Grouped splits are not label-stratified, but with thousands of groups the fraud rate stays close to the population rate.
+- **FiFAR uses its published fixed split.** Because the split is predetermined, the random seed has no effect, so FiFAR is run once rather than three times.
+
+## Test-set negative subsampling
+
+Prediction cost for the FTMs scales with the number of test rows, and on the larger datasets the full test set dominates wall-clock time. Because the positive class is small and drives metric variance, the protocol keeps **all** test positives and randomly downsamples test negatives to a per-dataset cap (`test_neg_cap`, default $30{,}000$; eu_cc is exempt and always scored in full, as it has only $\sim\!98$ test frauds for which rare-event metrics would be indefensible under subsampling). The subsample is deterministic in the run seed and independent of the context-construction RNG stream.
+
+Subsampling negatives changes the empirical class prevalence, which would bias precision-based metrics upward. Two facts make this correctable. First, the ROC quantities (true-positive and false-positive rates) are invariant to random negative subsampling, so Recall@FPR and ROC-AUC are unaffected. Second, precision at any threshold can be recomputed at the *true* (full-split) prevalence $\pi$ from the ROC quantities,
+
+$$
+\text{precision}(t) = \frac{\pi \cdot \mathrm{TPR}(t)}{\pi \cdot \mathrm{TPR}(t) + (1-\pi)\cdot \mathrm{FPR}(t)},
+$$
+
+and the prevalence-corrected average precision is obtained by integrating precision over recall along the score-sorted thresholds. At $\pi$ equal to the observed prevalence this reduces to the standard average precision to machine precision, so the corrected estimator is used uniformly and is exact when no subsampling occurs.
+
+## Temporal generalisation (ablation)
+
+The main grid uses random splits and keeps time as a feature. The orthogonal question of temporal generalisation — training on the past and testing on the future — is handled as a dedicated ablation rather than folded into the main grid. The natural vehicle is BAF, whose published protocol splits by `month` (already excluded as a feature); this isolates the effect of distribution shift without confounding it with the main comparisons. [TODO: finalise the temporal-ablation design and report.]
+
+## Repetitions
+
+Each configuration is run under three seeds (42, 123, 7), except FiFAR (fixed split, one run). Results are aggregated as mean $\pm$ standard deviation across seeds; FiFAR is reported as a single point estimate.
+
+# Models {#sec-models}
+
+## Tabular foundation models
+
+Five ICL tabular foundation models are evaluated, spanning the current TabPFN line and an independent architecture (TabICL):
+
+| Key | Model | Context limit (rows × features) | Notes |
+|---|---|---|---|
+| `tabpfn_v2` | TabPFN v2 | 10,000 × 500 | Ungated [@hollmann2025accurate_tabular_foundation_model] |
+| `tabpfn_25` | TabPFN 2.5 | 50,000 × 2,000 | Gated; license accepted [@grinsztajn2025tabpfn25_arxiv] |
+| `tabpfn_26` | TabPFN 2.6 | 50,000 × 2,000 | Gated; license accepted |
+| `tabpfn_3` | TabPFN v3 | 50,000 × 2,000 | Gated; license acceptance pending [TODO] |
+| `tabiclv2` | TabICLv2 | ~48,000 × 500 | BSD-3 [@qu2026tabiclv2] |
+
+: Foundation models and their context budgets. Limits are soft, based on the pre-training size range. {#tbl-ftms}
+
+All FTMs run on GPU (`device="cuda"`, NVIDIA RTX 5070) through a common wrapper exposing the scikit-learn `fit` / `predict_proba` interface, where `fit` loads the context rather than training weights. The `tabpfn` library version is 8.0.8 and `tabicl` is 2.0.3; both versions are recorded per run for provenance.
+
+::: {.callout-note}
+At time of writing, TabPFN v3 weights require a one-time license acceptance for the account holding the API token; until that is granted, `tabpfn_3` is excluded from the run driver and the in-flight grid is effectively four FTMs. The model is included in the target design and back-filled once the license is accepted.
+:::
+
+## GBDT baselines
+
+XGBoost [@chen2016xgboost_scalable_tree_boosting] and CatBoost [TODO: cite] serve as reference points. Both are class-weighted (`scale_pos_weight = n_neg / n_pos`) and otherwise use library defaults — they are reference baselines, not the object of study.
+
+Crucially, **GBDTs are trained on the full training set and run only under condition C1.** The bounded context window is an inherent property of the FTMs being evaluated, not a constraint to impose on every model. The FTM-versus-GBDT comparison therefore measures how an ICL model performs under its architectural data limitation against a model that sees all available training data — which is the practically relevant question.
+
+# Context-construction conditions {#sec-conditions}
+
+The four conditions differ only in how the FTM context is assembled; the model, split, and evaluation are held fixed.
+
+| ID | Name | Context construction | Fraud ratio |
+|---|---|---|---|
+| C1 | Random | Uniform random subsample to the context limit | Natural |
+| C2 | Stratified | Class-balanced subsample | 50/50 |
+| C3 | kNN (control) | Nearest-neighbour retrieval around the test batch | Natural |
+| C4 | RAP | kNN retrieval + controlled fraud oversampling | Swept: 5/10/20/30/50% |
+
+: Context-construction conditions. {#tbl-conditions}
+
+**C1 (random)** is the naive baseline: a single context of `min(n_train, context_limit)` rows sampled uniformly, reused for all test rows. **C2 (stratified)** balances the context to 50/50 (taking all available fraud if fewer than half the budget); comparing C2 with C1 isolates the effect of class ratio with relevance held constant. **C3 (kNN control)** retrieves, for each test batch, the $k$ nearest training rows to the batch centroid in standardised feature space, at the natural fraud ratio; C3 versus C1 isolates the effect of relevance. **C4 (RAP)** combines retrieval with controlled oversampling of the fraud quota; C4 versus C3 isolates the effect of ratio tuning on top of retrieval, and the ratio sweep answers RQ4.
+
+For C1 and C2 the context is built once and reused, so prediction over the test set can be chunked purely for GPU-memory reasons without affecting results. For C3 and C4 the context is rebuilt per batch around that batch's centroid.
+
+## RAP pipeline {#sec-rap}
+
+The retrieval pipeline (Phase 3 implementation; the conditions above are specified, the modules are in progress) comprises three stages:
+
+1. **Retriever.** A nearest-neighbour index is built on **standardised** training features (a `StandardScaler` fit on the training split only). Distance metric (cosine vs Euclidean) is chosen empirically on the development dataset. The standardisation is used solely to make distances comparable across features; the context rows handed to the FTM remain unscaled.
+2. **Sampler.** Given the retrieved candidate pool and a target fraud ratio, the sampler fills the fraud quota — drawing from the global fraud pool, and **with replacement** (duplicating fraud rows) when unique training fraud is exhausted. Oversampling is the method under study, so the quota is filled rather than capped at the available unique fraud; a run records both `context_fraud_n` and `context_fraud_unique` so the duplication factor is recoverable, and duplication-heavy cells are annotated or excluded at analysis time against a stated threshold rather than dropped from the grid.
+3. **Context builder.** Assembles the final `(X_ctx, y_ctx)` for the condition and dispatches to the model.
+
+Two guards apply. Retrieval batches are formed from homogeneous groups of test rows (clustering/sorting in feature space) so that each batch centroid is representative. And C3 must guard against fraud-free retrieved contexts, since a single-class context breaks `predict_proba(...)[:, 1]`. [TODO: finalise guard behaviour when implementing `src/rap/`.]
+
+# Evaluation metrics {#sec-metrics}
+
+Performance is reported with metrics appropriate to heavy imbalance, where accuracy and unqualified ROC-AUC are misleading.
+
+- **PR-AUC (average precision)** is the primary metric, computed prevalence-corrected as described in @sec-protocol so that test-set subsampling introduces no bias.
+- **Recall@1%FPR** and **Recall@5%FPR** report the true-positive rate achievable at a fixed false-positive budget — directly meaningful for fraud screening, where operating points are chosen by the cost of investigating false alarms. These use the **conservative step-function value** of the empirical ROC curve: the highest TPR among operating points with $\mathrm{FPR} \le$ target. Linear interpolation between ROC points is deliberately avoided, because interpolated $(\mathrm{FPR}, \mathrm{TPR})$ pairs do not correspond to any achievable decision threshold and therefore overestimate recall — a bias that is pronounced when the positive class is small and the empirical curve is coarse (e.g. eu_cc, with $\sim\!100$ test frauds). The step value carries a small downward bias of one negative-count step ($1/N_\text{neg}$), negligible at $N \approx 30$k.
+- **ROC-AUC** and **F1** (at threshold $0.5$) are reported as secondary metrics.
+
+# Experimental grid {#sec-grid}
+
+The full grid spans datasets, models, conditions, and seeds:
+
+- **Dataset–seed units:** $5$ datasets $\times\,3$ seeds $+$ FiFAR $\times\,1 = 16$.
+- **FTM core:** $5$ models $\times\,4$ conditions $\times\,16 = 320$ runs.
+- **GBDT core:** $2$ models $\times\,1$ condition $\times\,16 = 32$ runs.
+- **C4 fraud-ratio sweep:** $5$ FTMs $\times\,5$ ratios $\times\,16 = 320$ net-new runs (the default-ratio C4 point is shared with the core).
+- **Batch-size sweep:** $1$ FTM $\times\,4$ sizes $\times\,2$ datasets $\times\,3$ seeds $= 24$ runs.
+
+cc_2025 cells beyond the already-collected C1/C2 results are dropped (degenerate, @sec-data).
+
+## Ensemble passes
+
+Each FTM prediction averages over `n_estimators` ensemble passes (input/feature permutations). The library default is $8$; reducing it speeds prediction roughly linearly but changes outputs. **All reported FTM results use `n_estimators = 4`**, chosen to keep the full grid tractable on a single GPU; the runner default of $8$ is retained only for ad-hoc single runs. The value is recorded per run, so the setting is auditable and runs are never mixed across values.
+
+# Implementation and reproducibility {#sec-repro}
+
+The experiment harness is built for exact reproducibility and safe restartability.
+
+- **Language split.** Python handles all model training, inference, and the RAP pipeline; R + Quarto + Typst handle analysis, tables, figures, and this document. The two communicate only through Parquet files written to `results/runs/` — no in-process bridge.
+- **Determinism.** All randomness flows through `numpy.random.default_rng(seed)`; the test-subsampling stream is offset (`seed ^ 0x5CA1E`) to stay independent of context construction. Library versions are pinned via `uv` and `uv.lock`.
+- **Idempotent runner.** Each run is fully specified by a configuration dict whose canonical serialisation is SHA-256 hashed to a `run_id` and output path; an existing file is skipped. Runs can be killed and restarted without recomputation or duplication.
+- **Pipeline versioning.** A `_PIPELINE_VERSION` integer is part of the config hash. Any change to model defaults or pipeline logic increments it, invalidating cached results so that a reported table never mixes incompatible pipeline behaviour. Results are filtered to the current version (4) for analysis.
+- **Per-run provenance.** Each run records the full configuration, all metrics, true and scored test counts, context composition, library versions, and a three-way timing split (setup / fit / predict) so that one-time model-loading cost never contaminates fit/predict comparisons.
+
+This produces, for every cell of the grid, a single self-describing Parquet row, from which all thesis tables and figures are derived.
+
+# References {.unnumbered}
+
+::: {#refs}
+:::
