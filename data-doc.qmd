@@ -1,0 +1,509 @@
+---
+title: "Fraud Detection Datasets"
+subtitle: "Data sources, schema overview, and exploratory analysis"
+date: today
+format:
+  typst:
+    toc: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(DBI)
+library(duckdb)
+library(dbplyr)
+library(janitor)
+library(scales)
+library(patchwork)
+
+con <- dbConnect(duckdb("data/duckdb/fraud_datasets.duckdb", read_only = TRUE))
+
+info_cols <- tbl(con, sql("SELECT * FROM information_schema.columns"))
+
+get_schema <- function(table_name) {
+  tname <- table_name
+  info_cols |>
+    filter(table_name == tname) |>
+    arrange(ordinal_position) |>
+    select(column_name, data_type) |>
+    collect()
+}
+
+theme_set(theme_minimal(base_size = 11))
+```
+
+# Overview
+
+Six publicly available datasets were ingested into a local DuckDB database for this thesis project. All datasets contain labelled transaction records suitable for supervised fraud detection. The table below summarises key properties.
+
+```{r overview-table}
+table_names <- c(
+  "raw_eu_cc_kaggle_creditcard",
+  "raw_cc_fraud_2025_credit_card_fraud_2025",
+  "raw_ai_banking_2025_banking_fraud_dataset",
+  "raw_banksim_bs140513_032310",
+  "raw_banksim_bsnet140513_032310",
+  "raw_paysim_ps_20174392719_1491204439457_log",
+  "raw_fifar_train",
+  "raw_fifar_test"
+)
+
+rows  <- map_int(table_names, \(t) tbl(con, t) |> summarise(n = n()) |> pull(n))
+ncols <- map_int(table_names, \(t) {
+  info_cols |> filter(table_name == t) |> summarise(n = n()) |> pull(n)
+})
+
+tibble(
+  Dataset = c(
+    "EU Credit Card (MLG-ULB)", "Credit Card Fraud 2025", "AI Banking 2025",
+    "BankSim (transactions)", "BankSim (network)", "PaySim",
+    "FiFAR (train)", "FiFAR (test)"
+  ),
+  Rows    = comma(rows, accuracy = 1),
+  Columns = ncols
+) |>
+  knitr::kable(align = c("l", "r", "r"))
+```
+
+---
+
+# European Credit Card Fraud (MLG-ULB) {#sec-eu-cc}
+
+The canonical benchmark dataset released by the Machine Learning Group at Université Libre de Bruxelles [@Dal2015Calibrating]. It contains two days of credit card transactions by European cardholders in September 2013. Features V1–V28 are PCA-transformed to protect cardholder identity; only `Time` (seconds since the first transaction) and `Amount` are in original scale. The label `Class` is 1 for fraud.
+
+```{r eu-cc-schema}
+get_schema("raw_eu_cc_kaggle_creditcard") |>
+  knitr::kable(col.names = c("Column", "Type"))
+```
+
+```{r eu-cc-stats}
+eu_cc <- tbl(con, "raw_eu_cc_kaggle_creditcard") |> clean_names()
+
+stats <- eu_cc |>
+  summarise(
+    total          = n(),
+    fraud          = sum(as.integer(class == 1), na.rm = TRUE),
+    mean_amount    = round(mean(amount, na.rm = TRUE), 2),
+    min_amount     = round(min(amount,  na.rm = TRUE), 2),
+    max_amount     = round(max(amount,  na.rm = TRUE), 2),
+    duration_hours = round(max(time,    na.rm = TRUE) / 3600.0, 1)
+  ) |>
+  collect()
+
+cat(str_glue(
+  "Total transactions: {comma(stats$total)}  |  ",
+  "Fraud: {comma(stats$fraud)} ({percent(stats$fraud / stats$total, accuracy = 0.01)})  |  ",
+  "Amount: min ${stats$min_amount}, mean ${stats$mean_amount}, max ${stats$max_amount}  |  ",
+  "Duration: {stats$duration_hours} hours"
+))
+```
+
+```{r eu-cc-plots, fig.width=7, fig.height=4}
+eu_cc |>
+  filter(amount < 500) |>
+  select(amount, class) |>
+  collect() |>
+  mutate(class = factor(class, labels = c("Legitimate", "Fraud"))) |>
+  ggplot(aes(x = amount, fill = class)) +
+  geom_histogram(bins = 60) +
+  scale_fill_manual(values = c("steelblue", "firebrick")) +
+  facet_grid(rows = vars(class), scales = "free_y") +
+  labs(
+    title = "Transaction amount distribution (capped at $500)",
+    x = "Amount (USD)", y = "Count"
+  ) +
+  theme(legend.position = "none")
+```
+
+```{r eu-cc-time, fig.width=7, fig.height=4}
+eu_cc |>
+  mutate(hour = time / 3600.0) |>
+  select(hour, class) |>
+  collect() |>
+  mutate(class = factor(class, labels = c("Legitimate", "Fraud"))) |>
+  ggplot(aes(x = hour, fill = class)) +
+  geom_histogram(bins = 48) +
+  scale_fill_manual(values = c("steelblue", "firebrick")) +
+  facet_grid(rows = vars(class), scales = "free_y") +
+  labs(
+    title = "Transaction volume over time",
+    x = "Hours since first transaction", y = "Count"
+  ) +
+  theme(legend.position = "none")
+```
+
+---
+
+# Credit Card Fraud 2025 (Synthetic) {#sec-cc-2025}
+
+A synthetic credit card fraud dataset generated in 2025 with realistic multi-country transaction patterns. Contains 500,000 transactions with 16 features.
+
+```{r cc25-schema}
+get_schema("raw_cc_fraud_2025_credit_card_fraud_2025") |>
+  knitr::kable(col.names = c("Column", "Type"))
+```
+
+```{r cc25-stats}
+cc25_cols <- info_cols |>
+  filter(table_name == "raw_cc_fraud_2025_credit_card_fraud_2025") |>
+  pull(column_name)
+
+raw_label <- cc25_cols[str_to_lower(cc25_cols) %in% c("class", "fraud", "isfraud", "is_fraud", "label", "fraud_flag")][1]
+raw_amt   <- cc25_cols[str_to_lower(cc25_cols) %in% c("amount", "transaction_amount", "amt")][1]
+label_col <- if (!is.na(raw_label)) make_clean_names(raw_label) else NA_character_
+amt_col   <- if (!is.na(raw_amt))   make_clean_names(raw_amt)   else NA_character_
+
+cc25 <- tbl(con, "raw_cc_fraud_2025_credit_card_fraud_2025") |> clean_names()
+
+total_n <- cc25 |> summarise(n = n()) |> pull(n)
+
+if (!is.na(label_col)) {
+  fraud_n <- cc25 |>
+    summarise(fraud = sum(as.integer(.data[[label_col]] == 1), na.rm = TRUE)) |>
+    pull(fraud)
+  cat(str_glue(
+    "Total transactions: {comma(total_n)}  |  ",
+    "Fraud: {comma(fraud_n)} ({percent(fraud_n / total_n, accuracy = 0.01)})  |  ",
+    "Label column: {label_col}"
+  ))
+} else {
+  cat(str_glue(
+    "Total transactions: {comma(total_n)}  |  Label column: not detected\n",
+    "Available columns: {str_c(cc25_cols, collapse = ', ')}"
+  ))
+}
+```
+
+```{r cc25-amounts, fig.width=7, fig.height=4}
+if (!is.na(amt_col) && !is.na(label_col)) {
+  p99 <- cc25 |>
+    summarise(p99 = quantile(.data[[amt_col]], 0.99, na.rm = TRUE)) |>
+    pull(p99)
+
+  cc25 |>
+    filter(.data[[amt_col]] < p99) |>
+    select(amount = all_of(amt_col), fraud = all_of(label_col)) |>
+    collect() |>
+    mutate(fraud = factor(fraud, labels = c("Legitimate", "Fraud"))) |>
+    ggplot(aes(x = amount, fill = fraud)) +
+    geom_histogram(bins = 60) +
+    scale_fill_manual(values = c("steelblue", "firebrick")) +
+    facet_grid(rows = vars(fraud), scales = "free_y") +
+    labs(
+      title = "Transaction amount distribution (99th percentile cap)",
+      x = "Amount", y = "Count"
+    ) +
+    theme(legend.position = "none")
+}
+```
+
+---
+
+# AI Banking Fraud 2025 (Synthetic) {#sec-ai-banking}
+
+A small synthetic dataset (10,000 transactions) designed for educational and small-scale experiments. Features include account age, credit score, transaction type and previous fraud history.
+
+```{r ai-schema}
+get_schema("raw_ai_banking_2025_banking_fraud_dataset") |>
+  knitr::kable(col.names = c("Column", "Type"))
+```
+
+```{r ai-stats}
+ai_banking <- tbl(con, "raw_ai_banking_2025_banking_fraud_dataset") |> clean_names()
+
+stats <- ai_banking |>
+  summarise(
+    total       = n(),
+    fraud       = sum(as.integer(is_fraud == 1), na.rm = TRUE),
+    mean_amount = round(mean(transaction_amount, na.rm = TRUE), 2),
+    min_amount  = round(min(transaction_amount,  na.rm = TRUE), 2),
+    max_amount  = round(max(transaction_amount,  na.rm = TRUE), 2)
+  ) |>
+  collect()
+
+cat(str_glue(
+  "Total: {comma(stats$total)}  |  ",
+  "Fraud: {comma(stats$fraud)} ({percent(stats$fraud / stats$total, accuracy = 0.01)})  |  ",
+  "Amount: min ${stats$min_amount}, mean ${stats$mean_amount}, max ${stats$max_amount}"
+))
+```
+
+```{r ai-plots, fig.width=7, fig.height=4}
+ai_banking |>
+  count(transaction_type, is_fraud) |>
+  collect() |>
+  mutate(is_fraud = factor(is_fraud, labels = c("Legitimate", "Fraud"))) |>
+  ggplot(aes(x = transaction_type, y = n, fill = is_fraud)) +
+  geom_col() +
+  scale_fill_manual(values = c("steelblue", "firebrick")) +
+  facet_grid(rows = vars(is_fraud), scales = "free_y") +
+  labs(
+    title = "Transaction counts by type and fraud label",
+    x = "Transaction type", y = "Count"
+  ) +
+  theme(legend.position = "none")
+```
+
+---
+
+# BankSim {#sec-banksim}
+
+BankSim is an agent-based payment simulator calibrated from aggregated data of a Spanish bank [@Lopez2014BankSim]. It generates labelled transactions over a six-month window. Two files are available: the main transaction log and a network (pairwise) summary.
+
+## Transaction log
+
+```{r banksim-schema}
+get_schema("raw_banksim_bs140513_032310") |>
+  knitr::kable(col.names = c("Column", "Type"))
+```
+
+```{r banksim-stats}
+banksim <- tbl(con, "raw_banksim_bs140513_032310") |> clean_names()
+
+stats <- banksim |>
+  summarise(
+    total       = n(),
+    fraud       = sum(as.integer(fraud == 1), na.rm = TRUE),
+    mean_amount = round(mean(as.double(amount), na.rm = TRUE), 2),
+    n_categories = n_distinct(category),
+    n_customers  = n_distinct(customer),
+    n_merchants  = n_distinct(merchant)
+  ) |>
+  collect()
+
+cat(str_glue(
+  "Transactions: {comma(stats$total)}  |  ",
+  "Fraud: {comma(stats$fraud)} ({percent(stats$fraud / stats$total, accuracy = 0.01)})  |  ",
+  "Mean amount: ${stats$mean_amount}\n",
+  "Customers: {comma(stats$n_customers)}  |  ",
+  "Merchants: {comma(stats$n_merchants)}  |  ",
+  "Categories: {stats$n_categories}"
+))
+```
+
+```{r banksim-plot, fig.width=7, fig.height=5}
+banksim |>
+  group_by(category) |>
+  summarise(
+    Fraud      = sum(as.integer(fraud == 1)),
+    Legitimate = sum(as.integer(fraud == 0))
+  ) |>
+  collect() |>
+  pivot_longer(c(Fraud, Legitimate), names_to = "label", values_to = "n") |>
+  ggplot(aes(x = reorder(category, -n), y = n, fill = label)) +
+  geom_col() +
+  scale_fill_manual(values = c("firebrick", "steelblue")) +
+  facet_grid(rows = vars(label), scales = "free_y") +
+  labs(
+    title = "BankSim: transactions by merchant category",
+    x = "Category", y = "Count"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1),
+    legend.position = "none"
+  )
+```
+
+## Network table
+
+```{r banksim-net-schema}
+get_schema("raw_banksim_bsnet140513_032310") |>
+  knitr::kable(col.names = c("Column", "Type"))
+```
+
+```{r banksim-net-stats}
+n <- tbl(con, "raw_banksim_bsnet140513_032310") |> summarise(n = n()) |> pull(n)
+cat(str_glue("Network edges (customer–merchant pairs): {comma(n)}"))
+```
+
+---
+
+# PaySim {#sec-paysim}
+
+PaySim is a mobile money simulator based on one month of anonymised transaction logs from a real mobile money service operating in an African country [@Lopez2016PaySim]. It is widely used for fraud detection research due to its scale and realistic transfer patterns. Fraud occurs exclusively in `TRANSFER` and `CASH_OUT` transaction types.
+
+```{r paysim-schema}
+get_schema("raw_paysim_ps_20174392719_1491204439457_log") |>
+  knitr::kable(col.names = c("Column", "Type"))
+```
+
+```{r paysim-stats}
+paysim <- tbl(con, "raw_paysim_ps_20174392719_1491204439457_log") |> clean_names()
+
+stats <- paysim |>
+  summarise(
+    total       = n(),
+    fraud       = sum(as.integer(is_fraud == 1), na.rm = TRUE),
+    n_types     = n_distinct(type),
+    mean_amount = round(mean(amount, na.rm = TRUE), 2),
+    max_step    = max(step, na.rm = TRUE)
+  ) |>
+  collect()
+
+cat(str_glue(
+  "Transactions: {comma(stats$total)}  |  ",
+  "Fraud: {comma(stats$fraud)} ({percent(stats$fraud / stats$total, accuracy = 0.01)})  |  ",
+  "Mean amount: ${stats$mean_amount}  |  ",
+  "Steps (hours): {stats$max_step}"
+))
+```
+
+```{r paysim-by-type, fig.width=7, fig.height=5}
+paysim |>
+  group_by(type) |>
+  summarise(
+    Fraud      = sum(as.integer(is_fraud == 1)),
+    Legitimate = sum(as.integer(is_fraud == 0))
+  ) |>
+  collect() |>
+  pivot_longer(c(Fraud, Legitimate), names_to = "label", values_to = "n") |>
+  ggplot(aes(x = type, y = n, fill = label)) +
+  geom_col() +
+  scale_fill_manual(values = c("firebrick", "steelblue")) +
+  facet_grid(rows = vars(label), scales = "free_y") +
+  labs(
+    title = "PaySim: transaction volume by type",
+    x = "Transaction type", y = "Count"
+  ) +
+  theme(legend.position = "none")
+```
+
+```{r paysim-time, fig.width=7, fig.height=3}
+paysim |>
+  group_by(step) |>
+  summarise(fraud = sum(as.integer(is_fraud == 1))) |>
+  arrange(step) |>
+  collect() |>
+  ggplot(aes(x = step, y = fraud)) +
+  geom_line(colour = "firebrick", linewidth = 0.6) +
+  labs(
+    title = "Fraudulent transactions over time (hourly steps)",
+    x = "Step (hour)", y = "Fraud count"
+  )
+```
+
+---
+
+# FiFAR — Financial Fraud Alert Review Dataset {#sec-fifar}
+
+FiFAR is a synthetic dataset released by Feedzai representing bank account opening applications reviewed by fraud analysts [@Vaz2023FiFAR]. It accompanies research on human-AI collaboration and learning-to-defer systems. The dataset contains one million applications split across train and test sets, with predictions from 50 synthetic fraud analysts. For this thesis the main focus is on the transaction-level features and the binary fraud label.
+
+```{r fifar-schema}
+get_schema("raw_fifar_train") |>
+  knitr::kable(col.names = c("Column", "Type"))
+```
+
+```{r fifar-stats}
+fifar_train <- tbl(con, "raw_fifar_train") |> clean_names()
+fifar_test  <- tbl(con, "raw_fifar_test")  |> clean_names()
+
+fifar_cols <- info_cols |>
+  filter(table_name == "raw_fifar_train") |>
+  pull(column_name)
+
+raw_lbl <- fifar_cols[str_to_lower(fifar_cols) %in% c("fraud_bool", "fraud", "label", "is_fraud", "isfraud")][1]
+lbl     <- if (!is.na(raw_lbl)) make_clean_names(raw_lbl) else NA_character_
+
+train_n <- fifar_train |> summarise(n = n()) |> pull(n)
+test_n  <- fifar_test  |> summarise(n = n()) |> pull(n)
+
+if (!is.na(lbl)) {
+  fraud_n <- fifar_train |>
+    summarise(fraud = sum(as.integer(.data[[lbl]] == 1), na.rm = TRUE)) |>
+    pull(fraud)
+
+  cat(str_glue(
+    "Train rows: {comma(train_n)}  |  Test rows: {comma(test_n)}  |  ",
+    "Fraud in train: {comma(fraud_n)} ({percent(fraud_n / train_n, accuracy = 0.01)})  |  ",
+    "Label column: {lbl}"
+  ))
+} else {
+  cat(str_glue("Train rows: {comma(train_n)}  |  Test rows: {comma(test_n)}"))
+}
+```
+
+```{r fifar-numeric-dist, fig.width=7, fig.height=7}
+num_cols <- info_cols |>
+  filter(
+    table_name == "raw_fifar_train",
+    data_type %in% c("DOUBLE", "FLOAT", "INTEGER", "BIGINT", "HUGEINT", "DECIMAL")
+  ) |>
+  arrange(ordinal_position) |>
+  pull(column_name)
+
+num_cols <- make_clean_names(num_cols)
+num_cols <- num_cols[!str_detect(num_cols, "^(id|row|index)$")]
+num_cols <- num_cols[num_cols != lbl]
+plot_cols <- head(num_cols, 4)
+
+if (length(plot_cols) >= 2 && !is.na(lbl)) {
+  samp <- fifar_train |>
+    select(all_of(c(plot_cols, lbl))) |>
+    slice_sample(n = 20000) |>
+    collect() |>
+    mutate(across(all_of(plot_cols), as.numeric)) |>
+    mutate(across(all_of(lbl), \(x) factor(x, labels = c("Legitimate", "Fraud"))))
+
+  plots <- map(plot_cols, \(col) {
+    ggplot(samp, aes(x = .data[[col]], fill = .data[[lbl]])) +
+      geom_histogram(bins = 40) +
+      scale_fill_manual(values = c("steelblue", "firebrick")) +
+      facet_grid(rows = vars(.data[[lbl]]), scales = "free_y") +
+      labs(x = col, y = "Count") +
+      theme(legend.position = "none", axis.title = element_text(size = 9))
+  })
+
+  wrap_plots(plots, ncol = 2) +
+    plot_annotation(
+      title = "FiFAR: feature distributions (20k sample, fraud vs legitimate)"
+    )
+}
+```
+
+---
+
+# Class Imbalance Comparison {#sec-imbalance}
+
+All datasets exhibit significant class imbalance, a defining challenge in fraud detection.
+
+```{r imbalance-plot, fig.width=7, fig.height=3.5}
+imbalance <- tribble(
+  ~dataset,              ~table,                                                   ~label,
+  "EU CC (MLG-ULB)",    "raw_eu_cc_kaggle_creditcard",                            "class",
+  "CC Fraud 2025",       "raw_cc_fraud_2025_credit_card_fraud_2025",               label_col,
+  "AI Banking 2025",     "raw_ai_banking_2025_banking_fraud_dataset",              "is_fraud",
+  "BankSim",             "raw_banksim_bs140513_032310",                            "fraud",
+  "PaySim",              "raw_paysim_ps_20174392719_1491204439457_log",            "is_fraud",
+  "FiFAR (train)",       "raw_fifar_train",                                        lbl
+)
+
+imbalance$fraud_rate <- map2_dbl(imbalance$table, imbalance$label, \(tbl_name, label_name) {
+  if (is.na(label_name)) return(NA_real_)
+  label_sym <- sym(label_name)
+  tbl(con, tbl_name) |>
+    clean_names() |>
+    summarise(r = mean(as.double(!!label_sym), na.rm = TRUE)) |>
+    pull(r)
+})
+
+imbalance |>
+  ggplot(aes(x = reorder(dataset, fraud_rate), y = fraud_rate * 100)) +
+  geom_col(fill = "firebrick", alpha = 0.8) +
+  geom_text(
+    aes(label = percent(fraud_rate, accuracy = 0.01)),
+    hjust = -0.1, size = 3.5
+  ) +
+  coord_flip() +
+  scale_y_continuous(limits = c(0, max(imbalance$fraud_rate, na.rm = TRUE) * 1.3 * 100)) +
+  labs(title = "Fraud rate by dataset", x = NULL, y = "Fraud rate (%)")
+```
+
+---
+
+```{r teardown}
+dbDisconnect(con, shutdown = TRUE)
+```

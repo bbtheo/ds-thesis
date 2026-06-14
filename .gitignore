@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Data (large, not versioned)
+/data/
+
+# Training artifacts
+catboost_info/
+
+# Logs
+logs/
+
+# Generated outputs from Quarto
+data-doc_files/
+
+# R
+.Rproj.user/
+.RData
+.Rhistory
+.Ruserdata
+
+# Claude Code internals
+.claude/
+
+# OS
+.DS_Store
+
+# Run logs (regenerable)
+results/*.log
