@@ -59,7 +59,7 @@ Six publicly available transaction datasets form the **formal grid**, chosen to 
 | eu_cc (ULB) | 284,807 | 30 | 0.17% | Kaggle ULB credit-card | Formal grid |
 | cc_2025 | 500,000 | 11 | 1.5% | Synthetic | Formal grid (degenerate) |
 | banksim | 594,643 | 7 | 1.2% | BankSim simulator [@patil2024graphdb_banksim] | Formal grid |
-| paysim | 6,354,407 | 7 | 0.13% | PaySim simulator [@alumona2025paysim_ml] | Formal grid |
+| paysim | 6,362,620 | 7 | 0.13% | PaySim simulator [@alumona2025paysim_ml] | Formal grid |
 | fifar | 602,961 | 29 | 1.2% | FiFAR [@alves2023fifar_learning_to_defer] | Formal grid |
 | baf | 1,000,000 | 30 | 1.1% | Bank Account Fraud [@jesus2022baf_arxiv] | Formal grid |
 | ai_banking | 10,000 | 6 | 28.4% | Synthetic | Dev only |

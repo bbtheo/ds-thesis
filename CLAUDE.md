@@ -28,7 +28,8 @@ See `scratchpad/experiment-plan.md` for the full experiment design. **Note:** th
 - **C1/C2 v4 rerun** via `scripts/run_pending_c1c2.py` (now loads each (dataset, seed) split once and reuses it across models/conditions; idempotent). Enumerates all pending C1/C2 configs for the formal grid (cc_2025 excluded).
 - **CatBoost runs with `thread_count=1`** (set in `gbdt.py`). At the default thread count CatBoost 1.2.10 SIGSEGVs in its TBB pool during the long fit on paysim (~5M rows) and took down the whole unattended driver on 2026-06-14. CatBoost CPU training is thread-count-invariant (verified bit-identical), so this changes no results — it is just slower on the largest datasets. NOT a memory/data/metric issue (load is 3.5 GB/4 s). See the auto-memory note `catboost-paysim-segfault`.
 - **C3/C4 (RAP retrieval) are implemented (Phase 3, 2026-06-18).** `src/rap/{retriever,sampler,context}.py` plus a per-group FTM path in the runner. Per-group design (one retrieval + one FTM refit per silhouette-chosen test cluster); no `pipeline_version` bump (C1/C2/GBDT hashes/results untouched, only new C3/C4 rows). C3/C4 FTMs are `tabpfn_3` + `tabiclv2` only. Smoke-tested on `ai_banking` (tabiclv2 C3+C4) and `eu_cc` (tabpfn_3 C3) — idempotent, finite metrics. Dev inspection: `scripts/dev_rap_validation.py`. See `scratchpad/phase3-plan.md`. **Phase-4 grid driver built + launched (2026-06-18):** `scripts/run_pending_c3c4.py` enumerates every pending C3/C4 formal-grid cell (cc_2025 excluded): C3 + C4 ratio sweep {0.05,0.10,0.20,0.30,0.50} × {`tabiclv2`,`tabpfn_3`} × 13 dataset-seed units = **156 runs** (`metric=cosine`, `n_estimators=4`); idempotent, loads each split once. Running unattended → `results/run_c3c4.log`. **Still open:** the cosine-vs-euclidean A/B (the grid is cosine-only — euclidean is a separate study, not in this sweep) and the shared-retrieval-index-across-ratios optimisation (deferred — the driver rebuilds the index per run; grouping is a small fraction of per-group FTM predict).
-- **Not created yet:** `src/experiment/grid.py`, `configs/experiment_grid.yaml`, the `analysis/` R scripts, and `thesis.qmd`. The run scripts in `scripts/` currently serve as the grid driver.
+- **Full review applied (2026-07-06):** the corrections in `scratchpad/review-2026-07-06/correction-log.md` are implemented — outline/bib fixes, `ap_at_prevalence` tie fix (+ `tests/test_metrics.py`), thread-pinned C3/C4 grouping (`threadpoolctl`), per-group retrieval now timed into `setup_s`, runner validation (C3/C4 model restriction, stray `fraud_ratio` rejected), verified checkpoint context limits (v3 = 1M, 2.6 = 100k — our 50k is a design budget), stale parquets quarantined. BLK-1 resolved: the eu_cc SOTA figure 0.897 was the single best run (tabpfn_3, C2, seed 7); the fair seed-mean is **0.869** vs external 0.867 → "at par", not "above".
+- **Not created yet:** `src/experiment/grid.py`, `configs/experiment_grid.yaml`, and the `analysis/` R scripts. The run scripts in `scripts/` currently serve as the grid driver. `thesis.qmd` and `methodology.qmd` exist as first drafts.
 
 ---
 
@@ -74,7 +75,7 @@ ds-gradu/
 └── pyproject.toml             # Python deps managed by uv
 ```
 
-`thesis.qmd` (main thesis document) does not exist yet.
+`thesis.qmd` (main thesis document, 6-chapter first draft) and `methodology.qmd` exist at the repo root; `tests/` holds the metrics regression tests (pytest, dev dependency via uv).
 
 ---
 
@@ -206,11 +207,12 @@ Notes (pipeline v4):
 - `n_estimators` = FTM ensemble passes (GBDT `None`). Reducing it speeds predict ~linearly but changes outputs. **All reported FTM results use `n_estimators=4`** — a settled decision (driver `N_ESTIMATORS = 4` in `run_pending_c1c2.py`) to keep the full grid tractable on one GPU. The runner's own default stays 8, so single-run commands without `--n_estimators` use 8 and are NOT comparable to grid runs — always check this column when comparing.
 - `context_fraud_unique` = unique fraud rows in context (== `context_fraud_n` for C1/C2; differs under C4 with-replacement oversampling).
 - `tabpfn_lib`/`tabicl_lib` = library versions for provenance (not hashed).
-- `setup_s` = build + weight load (**+ scaler + retrieval index + test grouping for C3/C4**); `fit_s` = GBDT train / FTM context fit (**Σ per-group fit for C3/C4**); `predict_s` = test prediction (**Σ per-group predict for C3/C4**); `inference_s` = `fit_s + predict_s`. Use `fit_s`/`predict_s` for timing.
+- `setup_s` = build + weight load (**+ scaler + retrieval index + test grouping + Σ per-group kNN query/sampling for C3/C4**); `fit_s` = GBDT train / FTM context fit (**Σ per-group fit for C3/C4**); `predict_s` = test prediction (**Σ per-group predict for C3/C4**); `inference_s` = `fit_s + predict_s`. Use `fit_s`/`predict_s` for timing. **Caveat (review A-7):** C3/C4 parquets written before 2026-07-06 timed per-group retrieval into NO column — their recorded components are lower bounds on RAP overhead.
 - **C3/C4 (RAP retrieval) — Phase 3.** Per-group design: the scored test set is clustered (k-means; `G` chosen by silhouette over `k=2..20`, recorded as the **output** `n_groups`; `group_silhouette` = selection score), and the FTM is refit once per group around its cluster centre. `n_groups`/`group_silhouette` are **C3/C4-only** (`NULL` for GBDT and C1/C2; written as nullable `Int64`/`float64` so an all-None row never becomes Arrow `null` type). `metric` (`'cosine'` default / `'euclidean'`) and, for C4, `fraud_ratio` are the real C3/C4 factors; **`batch_size` and `k` are dropped from the C3/C4 config hash** (grouping is automatic, retrieval depth is derived from `context_size`) and are `None` for all conditions. C1/C2/GBDT hashes are unchanged → existing results stay valid, **no `pipeline_version` bump**. `context_fraud_n` is the per-group mean fraud count (C3 varies by group; C4 = `round(fraud_ratio·context_size)`); `context_fraud_unique` < `context_fraud_n` only under C4 with-replacement oversampling. C3/C4 FTMs are `tabpfn_3` + `tabiclv2` only.
 - banksim uses a grouped 80/20 split by `customer`; other random-split datasets use stratified splits.
 - Filter analysis to `pipeline_version == 4` — v2/v3 rows are stale (except cc_2025, kept deliberately).
-- **Schema drift across `results/runs/`:** old v2/v3 parquets lack the v4 columns (`n_estimators`, `n_test_scored`, `context_fraud_unique`, `tabpfn_lib`, …), so a naive `arrow::open_dataset("results/runs")` fails to unify the schemas (`ArrowNotImplementedError: cast … to null`). Read with a unified schema (or `unify_schemas = TRUE` / per-file binding) and then filter to `pipeline_version == 4`. Once the stale files are pruned this resolves itself.
+- **Stale v2/v3 parquets were quarantined 2026-07-06** into `results/runs_stale_prev4/` (90 files, incl. the deliberately-kept cc_2025 degeneracy documentation). `results/runs/` now holds only v4 rows (312 formal-grid + 4 ai_banking dev runs), so `arrow::open_dataset("results/runs")` unifies cleanly; still filter to the 5 formal datasets.
+- **`ap_at_prevalence` tie handling fixed 2026-07-06** (review C-1): tied scores are now grouped into one threshold (sklearn-equivalent); regression tests in `tests/test_metrics.py`. Recorded v4 PR-AUCs were computed pre-fix; measured bias ≤ +0.002 on the worst collapsed C4 columns, ~+0.00001 on C1/C2 — below every claimed effect; state this bound in the thesis methods.
 
 ---
 
@@ -219,7 +221,7 @@ Notes (pipeline v4):
 Citation keys follow: `authorYYYY_short_descriptor`
 Examples: `hollmann2025accurate_tabular_foundation_model`, `jesus2022baf_arxiv`
 
-Canonical bibliography: `/home/theo/thesis-lit/bibliography.bib`
+Canonical bibliography: `thesis-refs.bib` (repo root). `/home/theo/thesis-lit/bibliography.bib` is the old pre-consolidation file — do **not** re-sync from it (its mcdowell entry carries a malformed note that `thesis-refs.bib` fixes).
 
 ---
 
