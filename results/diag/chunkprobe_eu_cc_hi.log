@@ -1,0 +1,5 @@
+eu_cc seed=42 tabiclv2: train=227845 (fraud 394) test_scored=56962 (fraud 98) ctx=48000 prev=0.0017
+predict_chunk=2048 (default)
+  [predict] batch 2/2 | 13s elapsed | ETA 0s
+
+=== CHUNK PROBE (C1 context, predict 56962 test rows, warmed up) ===

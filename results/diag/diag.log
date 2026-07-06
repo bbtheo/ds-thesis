@@ -1,0 +1,69 @@
+banksim seed=42: train=476242 (fraud 5759) test_scored=31441 (fraud 1441) ctx=48000
+grouping: G=2 silhouette=0.857 sizes=[31362, 79]
+
+============================================================================================
+RETRIEVAL QUALITY — group 0 frauds: are kNN-retrieved frauds a degenerate clump?
+  d_to_fraudmean: dist of retrieved frauds to GLOBAL fraud centroid (random≈baseline)
+  spread:         mean dist of retrieved frauds to THEIR OWN centroid (low = clumped)
+============================================================================================
+  scaler    metric  d_retr  d_rand  spread_retr  spread_all  clump_ratio
+Standard    cosine   6.450   5.194        7.072       5.194        1.362
+Standard euclidean   4.331   5.194        2.840       5.194        0.547
+  Robust    cosine  11.831  15.970        5.228      15.970        0.327
+  Robust euclidean  14.069  15.970        4.541      15.970        0.284
+
+fraud-set Jaccard overlap (which rows each setting pulls):
+  Standard cosine vs euclidean : 0.160
+  Standard vs Robust (euclidean): 0.758
+
+CONTEXT vs TEST coverage (StandardScaler, group 0): is the context a pinpoint vs spread test?
+  context legit dist-to-centre: median 2.12  p95 3.93
+  test   rows  dist-to-centre: median 2.20  p95 4.34
+  -> 10% of test rows lie beyond the context's p95 radius
+
+============================================================================================
+FTM VARIANTS — banksim seed=42 tabiclv2 n_est=4 ratio=0.05 (grid ref: C1=0.908 C4cos=0.688)
+============================================================================================
+  [predict] batch 10/16 | 50s elapsed | ETA 30s
+  [predict] batch 16/16 | 78s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [C1            ] PR-AUC=0.9077  R@1=0.938  R@5=0.998  ROC=0.9978
+  [predict] batch 10/16 | 51s elapsed | ETA 31s
+  [predict] batch 16/16 | 80s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [C2            ] PR-AUC=0.9086  R@1=0.944  R@5=1.000  ROC=0.9980
+  [predict] batch 10/16 | 48s elapsed | ETA 29s
+  [predict] batch 16/16 | 77s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [C4_cos        ] PR-AUC=0.6881  R@1=0.691  R@5=0.876  ROC=0.9658
+  [predict] batch 10/16 | 51s elapsed | ETA 30s
+  [predict] batch 16/16 | 80s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [C4_euc        ] PR-AUC=0.2674  R@1=0.330  R@5=0.730  ROC=0.9652
+  [predict] batch 10/16 | 52s elapsed | ETA 31s
+  [predict] batch 16/16 | 82s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [C4_cos_rndF   ] PR-AUC=0.2210  R@1=0.281  R@5=0.656  ROC=0.9220
+  [predict] batch 10/16 | 50s elapsed | ETA 30s
+  [predict] batch 16/16 | 79s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [C4_euc_robust ] PR-AUC=0.2407  R@1=0.310  R@5=0.545  ROC=0.9508
+
+============================================================================================
+SUMMARY
+============================================================================================
+      variant  pr_auc     r1     r5    roc
+           C1  0.9077 0.9375 0.9979 0.9978
+           C2  0.9086 0.9438 1.0000 0.9980
+       C4_cos  0.6881 0.6912 0.8765 0.9658
+       C4_euc  0.2674 0.3296 0.7300 0.9652
+  C4_cos_rndF  0.2210 0.2811 0.6558 0.9220
+C4_euc_robust  0.2407 0.3102 0.5448 0.9508
+
+C1 vs C4_cos prediction comparison:
+  score correlation (spearman-ish via rank): 0.430
+  mean score on TRUE frauds:  C1=0.7449  C4_cos=0.9644
+  mean score on TRUE legits:  C1=0.0023  C4_cos=0.4165
+  fraud-minus-legit mean gap: C1=+0.7427  C4_cos=+0.5479
+
+saved predictions -> results/diag/banksim_seed42_tabiclv2_preds.parquet

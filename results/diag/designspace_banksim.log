@@ -1,0 +1,376 @@
+banksim seed=42 tabiclv2: train=476242 (fraud 5759) test_scored=31441 (fraud 1441) ctx=48000 prev=0.0122
+================================================================================================
+RAP DESIGN-SPACE SWEEP — banksim seed=42 tabiclv2 n_est=4
+================================================================================================
+  [predict] batch 10/16 | 52s elapsed | ETA 31s
+  [predict] batch 16/16 | 83s elapsed | ETA 0s
+  [C1_ref                ] G= 1 PR-AUC=0.9076 R@1=0.938 ROC=0.9978 legit=0.002
+  [predict] batch 10/16 | 49s elapsed | ETA 29s
+  [predict] batch 16/16 | 78s elapsed | ETA 0s
+  [C2_ref                ] G= 1 PR-AUC=0.9086 R@1=0.944 ROC=0.9980 legit=0.011
+  [predict] batch 10/16 | 48s elapsed | ETA 29s
+  [predict] batch 16/16 | 78s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g2_randL_randF_r05    ] G= 2 PR-AUC=0.9125 R@1=0.946 ROC=0.9981 legit=0.006
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g32_randL_randF_r05   ] G=32 PR-AUC=0.9056 R@1=0.942 ROC=0.9980 legit=0.007
+  [predict] batch 10/16 | 50s elapsed | ETA 30s
+  [predict] batch 16/16 | 81s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g2_knnL_knnF_r05      ] G= 2 PR-AUC=0.6881 R@1=0.691 ROC=0.9658 legit=0.417
+  [predict] batch 3/3 | 15s elapsed | ETA 0s
+  [predict] batch 4/4 | 20s elapsed | ETA 0s
+  [predict] batch 3/3 | 15s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 4/4 | 19s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 3/3 | 14s elapsed | ETA 0s
+  [predict] batch 2/2 | 9s elapsed | ETA 0s
+  [g8_knnL_knnF_r05      ] G= 8 PR-AUC=0.4630 R@1=0.548 ROC=0.9733 legit=0.065
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 2/2 | 9s elapsed | ETA 0s
+  [predict] batch 2/2 | 9s elapsed | ETA 0s
+  [predict] batch 2/2 | 9s elapsed | ETA 0s
+  [predict] batch 2/2 | 9s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 2/2 | 9s elapsed | ETA 0s
+  [predict] batch 2/2 | 10s elapsed | ETA 0s
+  [predict] batch 2/2 | 10s elapsed | ETA 0s
+  [predict] batch 2/2 | 10s elapsed | ETA 0s
+  [predict] batch 2/2 | 10s elapsed | ETA 0s
+  [predict] batch 2/2 | 12s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 2/2 | 10s elapsed | ETA 0s
+  [g16_knnL_knnF_r05     ] G=16 PR-AUC=0.7368 R@1=0.845 ROC=0.9950 legit=0.010
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g32_knnL_knnF_r05     ] G=32 PR-AUC=0.8863 R@1=0.933 ROC=0.9976 legit=0.003
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g64_knnL_knnF_r05     ] G=64 PR-AUC=0.9053 R@1=0.939 ROC=0.9978 legit=0.003
+  [predict] batch 10/16 | 49s elapsed | ETA 29s
+  [predict] batch 16/16 | 79s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g2_knnL_randF_r05     ] G= 2 PR-AUC=0.2210 R@1=0.281 ROC=0.9220 legit=0.530
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g32_knnL_randF_r05    ] G=32 PR-AUC=0.8845 R@1=0.931 ROC=0.9975 legit=0.002
+  [predict] batch 10/16 | 49s elapsed | ETA 29s
+  [predict] batch 16/16 | 79s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g2_knnL_allF          ] G= 2 PR-AUC=0.2525 R@1=0.287 ROC=0.9561 legit=0.387
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g32_knnL_allF         ] G=32 PR-AUC=0.8875 R@1=0.931 ROC=0.9976 legit=0.003
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g32_randL_knnF_r05    ] G=32 PR-AUC=0.9016 R@1=0.944 ROC=0.9980 legit=0.012
+  [predict] batch 10/16 | 48s elapsed | ETA 29s
+  [predict] batch 16/16 | 77s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g2_div5_knnL_knnF     ] G= 2 PR-AUC=0.4296 R@1=0.459 ROC=0.9444 legit=0.168
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [g32_div5_knnL_knnF    ] G=32 PR-AUC=0.4506 R@1=0.506 ROC=0.9521 legit=0.152
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [predict] batch 1/1 | 4s elapsed | ETA 0s
+  [g32_knnL_knnF_r20     ] G=32 PR-AUC=0.8822 R@1=0.929 ROC=0.9975 legit=0.004
+
+================================================================================================
+SUMMARY (sorted by PR-AUC) — banksim  [C1/C2 are the bar to beat]
+================================================================================================
+            variant  G  pr_auc     r1     r5    roc  legit
+ g2_randL_randF_r05  2  0.9125 0.9459 1.0000 0.9981 0.0064
+             C2_ref  1  0.9086 0.9438 1.0000 0.9980 0.0112
+             C1_ref  1  0.9076 0.9375 0.9979 0.9978 0.0023
+g32_randL_randF_r05 32  0.9056 0.9424 1.0000 0.9980 0.0067
+  g64_knnL_knnF_r05 64  0.9053 0.9389 0.9979 0.9978 0.0025
+ g32_randL_knnF_r05 32  0.9016 0.9438 1.0000 0.9980 0.0117
+      g32_knnL_allF 32  0.8875 0.9313 0.9993 0.9976 0.0032
+  g32_knnL_knnF_r05 32  0.8863 0.9327 0.9986 0.9976 0.0031
+ g32_knnL_randF_r05 32  0.8845 0.9306 0.9965 0.9975 0.0019
+  g32_knnL_knnF_r20 32  0.8822 0.9285 0.9986 0.9975 0.0036
+  g16_knnL_knnF_r05 16  0.7368 0.8446 0.9972 0.9950 0.0100
+   g2_knnL_knnF_r05  2  0.6881 0.6912 0.8765 0.9658 0.4165
+   g8_knnL_knnF_r05  8  0.4630 0.5475 0.8126 0.9733 0.0649
+ g32_div5_knnL_knnF 32  0.4506 0.5059 0.7474 0.9521 0.1521
+  g2_div5_knnL_knnF  2  0.4296 0.4587 0.7231 0.9444 0.1677
+       g2_knnL_allF  2  0.2525 0.2866 0.7682 0.9561 0.3872
+  g2_knnL_randF_r05  2  0.2210 0.2811 0.6558 0.9220 0.5302
+
+BEST: g2_randL_randF_r05  PR-AUC=0.9125  (C1=0.9076)

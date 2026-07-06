@@ -1,0 +1,54 @@
+banksim seed=42: train=476242 (fraud 5759) test_scored=31441 ctx=48000 ratio=0.05
+grouping: G=2 silhouette=0.857 sizes=[31362, 79]
+
+==========================================================================================
+HYBRID-ANCHOR SWEEP — banksim seed=42 tabiclv2 n_est=4 ratio=0.05
+legit_score = mean predicted prob on TRUE legits (C1 ref ~0.002; high = anchor loss)
+==========================================================================================
+  [predict] batch 10/16 | 49s elapsed | ETA 29s
+  [predict] batch 16/16 | 77s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [C1        ] PR-AUC=0.9077  R@1=0.938  R@5=0.998  ROC=0.9978  legit_score=0.002
+  [predict] batch 10/16 | 48s elapsed | ETA 29s
+  [predict] batch 16/16 | 77s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [C2        ] PR-AUC=0.9086  R@1=0.944  R@5=1.000  ROC=0.9980  legit_score=0.011
+  [predict] batch 10/16 | 48s elapsed | ETA 29s
+  [predict] batch 16/16 | 77s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [anchor_00 ] PR-AUC=0.6881  R@1=0.691  R@5=0.876  ROC=0.9658  legit_score=0.417
+  [predict] batch 10/16 | 48s elapsed | ETA 29s
+  [predict] batch 16/16 | 77s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [anchor_25 ] PR-AUC=0.8193  R@1=0.845  R@5=0.983  ROC=0.9942  legit_score=0.004
+  [predict] batch 10/16 | 50s elapsed | ETA 30s
+  [predict] batch 16/16 | 79s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [anchor_50 ] PR-AUC=0.7647  R@1=0.774  R@5=0.960  ROC=0.9914  legit_score=0.003
+  [predict] batch 10/16 | 49s elapsed | ETA 29s
+  [predict] batch 16/16 | 78s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [anchor_75 ] PR-AUC=0.7432  R@1=0.751  R@5=0.960  ROC=0.9908  legit_score=0.003
+  [predict] batch 10/16 | 50s elapsed | ETA 30s
+  [predict] batch 16/16 | 81s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [anchor_100] PR-AUC=0.7483  R@1=0.753  R@5=0.947  ROC=0.9899  legit_score=0.003
+  [predict] batch 10/16 | 49s elapsed | ETA 30s
+  [predict] batch 16/16 | 79s elapsed | ETA 0s
+  [predict] batch 1/1 | 5s elapsed | ETA 0s
+  [pg_random ] PR-AUC=0.9125  R@1=0.946  R@5=1.000  ROC=0.9981  legit_score=0.006
+
+==========================================================================================
+SUMMARY (PR-AUC vs anchor fraction)
+==========================================================================================
+   variant  pr_auc     r1     r5    roc  legit_score
+        C1  0.9077 0.9375 0.9979 0.9978       0.0023
+        C2  0.9086 0.9438 1.0000 0.9980       0.0112
+ anchor_00  0.6881 0.6912 0.8765 0.9658       0.4165
+ anchor_25  0.8193 0.8446 0.9827 0.9942       0.0037
+ anchor_50  0.7647 0.7745 0.9598 0.9914       0.0034
+ anchor_75  0.7432 0.7509 0.9598 0.9908       0.0031
+anchor_100  0.7483 0.7529 0.9466 0.9899       0.0031
+ pg_random  0.9125 0.9459 1.0000 0.9981       0.0064
+
+saved predictions -> results/diag/banksim_seed42_tabiclv2_hybrid_preds.parquet

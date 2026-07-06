@@ -1,0 +1,15 @@
+baf seed=42 tabiclv2: train=800000 (fraud 8823) test_scored=32206 (fraud 2206) ctx=48000 prev=0.0110
+predict_chunk=2048 (default)
+  [predict] batch 2/2 | 12s elapsed | ETA 0s
+
+=== CHUNK PROBE (C1 context, predict full scored test, warmed up) ===
+   chunk   wall_s   peak_MB    rows/s
+  [predict] batch 10/16 | 59s elapsed | ETA 35s
+  [predict] batch 16/16 | 94s elapsed | ETA 0s
+    2048     94.0      6854       343
+  [predict] batch 8/8 | 49s elapsed | ETA 0s
+    4096     49.4      6789       652
+  [predict] batch 4/4 | 26s elapsed | ETA 0s
+    8192     26.0      6926      1240
+  [predict] batch 2/2 | 15s elapsed | ETA 0s
+   16384     14.7      7069      2198
