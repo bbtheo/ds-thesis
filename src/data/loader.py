@@ -137,7 +137,16 @@ def load_dataset_split(
         test_df[test_cat] = enc.transform(test_df[test_cat].astype(str))
 
     feature_names = [c for c in train_df.columns if c != train_label]
-    # Ensure test has same feature columns
+    test_cols_no_label = [c for c in test_df.columns if c != test_label]
+    # Column sets (not order) must match: silently intersecting them would let
+    # schema drift between the train/test tables misalign features instead of
+    # failing loudly.
+    assert set(feature_names) == set(test_cols_no_label), (
+        f"Train/test feature columns differ for '{dataset_id}': "
+        f"train-only={sorted(set(feature_names) - set(test_cols_no_label))}, "
+        f"test-only={sorted(set(test_cols_no_label) - set(feature_names))}"
+    )
+    # Reorder test columns to match train's column order (order may legitimately differ).
     test_feature_names = [c for c in feature_names if c in test_df.columns]
 
     X_train = train_df[feature_names].to_numpy(dtype=np.float32)
@@ -168,8 +177,14 @@ def _preprocess(df: pd.DataFrame, cfg: dict, dataset_id: str) -> pd.DataFrame:
     # Drop requested columns (ignore missing ones)
     df = df.drop(columns=[c for c in drop_cols if c in df.columns])
 
-    # Ordinal-encode categoricals (fit+transform in one shot — no split leakage
-    # at this stage; splitter handles seeded splits after load)
+    # Ordinal-encode categoricals (fit+transform in one shot on the FULL dataset,
+    # before any train/test split — this is NOT leak-free by construction, since
+    # the split happens afterwards in src.data.splitter. It is empirically harmless
+    # here: the encoded vocabularies (category names, not labels) are small and
+    # fully covered by train alone in all 7 datasets, so the encoding is
+    # label-independent and would be identical if fit on train only. Contrast with
+    # load_dataset_split (used for fifar's pre-defined split), which fits the
+    # encoder on train only and applies it to test — that path is leak-free.
     present_cats = [c for c in cat_cols if c in df.columns]
     if present_cats:
         enc = OrdinalEncoder(

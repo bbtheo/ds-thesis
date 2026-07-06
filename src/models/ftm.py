@@ -8,13 +8,16 @@ All wrappers expose:
 Model weights are loaded lazily on the first fit() call and reused for
 subsequent calls (critical for C3/C4 where fit() is called per batch).
 
-Context limits (rows, soft — based on pre-training range):
-    tabpfn_v2  : 10,000 × 500
-    tabpfn_25  : 50,000 × 2,000
-    tabpfn_26  : 50,000 × 2,000
-    tabpfn_3   : 50,000 × 2,000  (tabpfn >= 8; provisional — confirm from the v3
-                                  checkpoint config once its license is accepted)
-    tabiclv2   : 48,000 × 500  (no hard cap; pre-training upper bound)
+Context limits (rows; CONTEXT_LIMITS is the *experimental context budget* the
+runner subsamples to, NOT necessarily the model's own cap):
+    tabpfn_v2  : 10,000 × 500    (= checkpoint MAX_NUMBER_OF_SAMPLES)
+    tabpfn_25  : 50,000 × 2,000  (= checkpoint MAX_NUMBER_OF_SAMPLES)
+    tabpfn_26  : 50,000 × 2,000  (checkpoint allows 100,000 — 50k is our budget)
+    tabpfn_3   : 50,000 × 2,000  (checkpoint allows 1,000,000 — 50k is our budget)
+    tabiclv2   : 48,000 × 500    (no hard cap; pre-training upper bound)
+
+Checkpoint values verified 2026-07-06 from each model's
+``inference_config_.MAX_NUMBER_OF_SAMPLES`` under tabpfn 8.0.8 (review C-3).
 """
 
 from __future__ import annotations
@@ -165,6 +168,11 @@ class TabICLModel:
         self._ensure_model()
 
     def fit(self, X_ctx: np.ndarray, y_ctx: np.ndarray) -> "TabICLModel":
+        if X_ctx.shape[0] > self.context_limit:
+            raise ValueError(
+                f"Context size {X_ctx.shape[0]} exceeds limit {self.context_limit} "
+                f"for tabiclv2. Subsample before calling fit()."
+            )
         self._ensure_model()
         self._model.fit(X_ctx, y_ctx)
         return self

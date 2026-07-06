@@ -12,12 +12,8 @@ from pathlib import Path
 # Make the project root importable when run as a script (uv run python scripts/...)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import numpy as np
-
-from src.data.loader import load_dataset, load_dataset_split
-from src.data.schema import DATASETS
-from src.data.splitter import split
 from src.experiment.runner import config_hash, run
+from src.experiment.split_util import load_full_split
 
 FORMAL_DATASETS = {
     # ordered by expected inference speed (fast → slow)
@@ -37,23 +33,6 @@ N_ESTIMATORS = 4
 RESULTS_DIR = Path('results/runs')
 
 
-def load_full_split(dataset_id: str, seed: int):
-    """Return the FULL (X_train, y_train, X_test, y_test) split for this dataset+seed.
-
-    Mirrors runner.run()'s own loading exactly so preloaded data is identical to
-    what the runner would have produced. Test subsampling is applied inside run().
-    """
-    schema = DATASETS[dataset_id]
-    if schema.get('fixed_split'):
-        X_train, y_train, X_test, y_test, _ = load_dataset_split(dataset_id)
-        return X_train, y_train, X_test, y_test
-    X, y, feature_names = load_dataset(dataset_id)
-    group_col = schema.get('group_split')
-    groups = X[:, feature_names.index(group_col)] if group_col else None
-    X_train, X_test, y_train, y_test = split(X, y, seed=seed, groups=groups)
-    return X_train, y_train, X_test, y_test
-
-
 def configs_for(ds: str, seed: int) -> list[dict]:
     cfgs = []
     for model in GBDT_MODELS:
@@ -69,34 +48,49 @@ def configs_for(ds: str, seed: int) -> list[dict]:
     return cfgs
 
 
-# Enumerate all configs, count pending up front.
-all_cfgs = [(ds, seed, cfg)
-            for ds, seeds in FORMAL_DATASETS.items()
-            for seed in seeds
-            for cfg in configs_for(ds, seed)]
-done = {f.stem for f in RESULTS_DIR.glob('*.parquet')}
-n_pending = sum(1 for _, _, c in all_cfgs if config_hash(c) not in done)
-print(f"Pending: {n_pending} / {len(all_cfgs)} total")
+def main() -> None:
+    # Enumerate all configs, count pending up front.
+    all_cfgs = [(ds, seed, cfg)
+                for ds, seeds in FORMAL_DATASETS.items()
+                for seed in seeds
+                for cfg in configs_for(ds, seed)]
+    done = {f.stem for f in RESULTS_DIR.glob('*.parquet')}
+    n_pending = sum(1 for _, _, c in all_cfgs if config_hash(c) not in done)
+    print(f"Pending: {n_pending} / {len(all_cfgs)} total")
 
-i = 0
-for ds, seeds in FORMAL_DATASETS.items():
-    for seed in seeds:
-        cfgs = configs_for(ds, seed)
-        # Skip the (expensive) load entirely if every config for this unit is done.
-        done = {f.stem for f in RESULTS_DIR.glob('*.parquet')}
-        if all(config_hash(c) in done for c in cfgs):
-            continue
-        print(f"\n### loading {ds} seed={seed} (once) ###", flush=True)
-        data = load_full_split(ds, seed)
-        for cfg in cfgs:
-            if config_hash(cfg) in done:
+    failures = []
+    i = 0
+    for ds, seeds in FORMAL_DATASETS.items():
+        for seed in seeds:
+            cfgs = configs_for(ds, seed)
+            # Skip the (expensive) load entirely if every config for this unit is done.
+            done = {f.stem for f in RESULTS_DIR.glob('*.parquet')}
+            if all(config_hash(c) in done for c in cfgs):
                 continue
-            i += 1
-            print(f"\n=== [{i}/{n_pending}] {cfg['dataset']} × {cfg['model']} × {cfg['condition']} × seed={cfg['seed']} ===", flush=True)
-            try:
-                run(cfg, data=data)
-            except Exception as e:
-                print(f"ERROR: {e}")
-                continue
+            print(f"\n### loading {ds} seed={seed} (once) ###", flush=True)
+            data = load_full_split(ds, seed)
+            for cfg in cfgs:
+                if config_hash(cfg) in done:
+                    continue
+                i += 1
+                print(f"\n=== [{i}/{n_pending}] {cfg['dataset']} × {cfg['model']} × {cfg['condition']} × seed={cfg['seed']} ===", flush=True)
+                try:
+                    run(cfg, data=data)
+                except Exception as e:
+                    print(f"ERROR: {e}")
+                    failures.append((cfg, repr(e)))
+                    continue
 
-print("\nAll done.")
+    if failures:
+        print(f"\n{len(failures)} run(s) FAILED:")
+        for cfg, err in failures:
+            print(f"  FAILED {cfg} -> {err}")
+    else:
+        print("\nAll done.")
+
+    if failures:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

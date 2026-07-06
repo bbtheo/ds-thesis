@@ -42,7 +42,13 @@ DATASETS: dict[str, dict] = {
             "Device_Type",
         ],
         "dev_only": False,
-        "notes": "500k rows; 1.5% fraud; synthetic",
+        # Documented v4 default (matches banksim/paysim/fifar/baf). Made explicit
+        # here rather than left absent (which silently means "no cap") — harmless
+        # either way since cc_2025 is degenerate and excluded from further runs,
+        # but this keeps the schema honest about what every dataset declares.
+        "test_neg_cap": 30_000,
+        "notes": "500k rows; 1.5% fraud; synthetic; degenerate (labels independent "
+                 "of features) — excluded from further runs, kept as documentation",
     },
     "banksim": {
         "table": "raw_banksim_bs140513_032310",
