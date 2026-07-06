@@ -94,7 +94,7 @@
 
 @misc{grinsztajn2025tabpfn25_arxiv,
   title        = {TabPFN-2.5: Advancing the State of the Art in Tabular Foundation Models},
-  author       = {Grinsztajn, L{\'e}o and Fl{\"o}ge, Klemens and Key, Oscar and Birkel, Felix and Roof, Brendan and Jund, Phil and J{\"a}ger, Benjamin and Hayler, Adrian and Safaric, Dominik and Alessi, Simone and Jablonski, Felix and Manium, Mihir and Yu, Rosen and Garg, Anurag and Robertson, Jake and Hoo, Shi Bin and Moroshan, Vladyslav and B{\"u}hler, Magnus and Purucker, Lennart and Sch{\"o}lkopf, Bernhard and Hollmann, Noah and Hutter, Frank},
+  author       = {Grinsztajn, L{\'e}o and Fl{\"o}ge, Klemens and Key, Oscar and Birkel, Felix and Jund, Philipp and Roof, Brendan and J{\"a}ger, Benjamin and Safaric, Dominik and Alessi, Simone and Hayler, Adrian and Manium, Mihir and Yu, Rosen and Jablonski, Felix and Hoo, Shi Bin and Garg, Anurag and Robertson, Jake and B{\"u}hler, Magnus and Moroshan, Vladyslav and Purucker, Lennart and Cornu, Clara and Wehrhahn, Lilly Charlotte and Bonetto, Alessandro and Sch{\"o}lkopf, Bernhard and Gambhir, Sauraj and Hollmann, Noah and Hutter, Frank},
   year         = {2025},
   eprint       = {2511.08667},
   archivePrefix= {arXiv},
@@ -285,7 +285,8 @@
   eprint       = {2312.13218},
   archivePrefix= {arXiv},
   primaryClass = {cs.LG},
-  url          = {https://arxiv.org/abs/2312.13218}
+  url          = {https://arxiv.org/abs/2312.13218},
+  note         = {The 602{,}961x29 train-set shape used in this thesis is not stated in the paper or its README; it is read off the released dataset files/repository, not the primary source.}
 }
 
 @misc{okeke2025federated_mule_fraud,
@@ -353,7 +354,7 @@
   archivePrefix= {arXiv},
   primaryClass = {cs.LG},
   url          = {https://arxiv.org/abs/2602.11139},
-  note         = {Accessed 2026-03-03}
+  note         = {Accessed 2026-03-03. The paper reports a 400--60{,}000-row pretraining context range and million-scale inference; the 48{,}000-row figure used elsewhere in this thesis is the \texttt{tabicl} library's implementation-level context limit (see \texttt{src/models/ftm.py CONTEXT\_LIMITS}), not a figure claimed by the paper itself.}
 }
 
 @misc{xu2026rdb_foundation_model,
@@ -499,20 +500,22 @@
 }
 
 % ---- merged entries (from references.bib) ----
-@inproceedings{Lin2017Focal,
+@inproceedings{lin2017_focal_loss,
   author = {Lin, Tsung-Yi and Goyal, Priya and Girshick, Ross B. and He, Kaiming and Doll\'ar, Piotr},
   title = {Focal Loss for Dense Object Detection},
   booktitle = {International Conference on Computer Vision (ICCV)},
   year = {2017},
-  doi = {10.1109/ICCV.2017.324}
+  doi = {10.1109/ICCV.2017.324},
+  url = {https://doi.org/10.1109/ICCV.2017.324}
 }
 
-@inproceedings{Lopez2016PaySim,
+@inproceedings{lopezrojas2016_paysim,
   author = {Lopez, Edgar A. and Elmir, Ahmad and Axelsson, Stefan},
   title = {PaySim: A Financial Mobile Money Simulator for Fraud Detection},
   booktitle = {European Modeling and Simulation Symposium (EMSS)},
   year = {2016},
-  pages = {249--255}
+  pages = {249--255},
+  url = {https://www.researchgate.net/publication/313138956_PAYSIM_A_FINANCIAL_MOBILE_MONEY_SIMULATOR_FOR_FRAUD_DETECTION}
 }
 
 % ---- authored entries (VERIFY before submission) ----
@@ -777,7 +780,7 @@
   year          = {2025},
   eprint        = {2502.04037},
   archivePrefix = {arXiv},
-  primaryClass  = {cs.LG},
+  primaryClass  = {cs.CL},
   url           = {https://arxiv.org/abs/2502.04037}
 }
 
@@ -799,4 +802,109 @@
   eprint        = {2402.11137},
   archivePrefix = {arXiv},
   url           = {https://arxiv.org/abs/2402.11137}
+}
+
+% --- Added from context-construction lit review 2026-06-19 ---
+% Surfaced by automated literature research. McDowell 2026 verified live 2026-06-19
+% (arXiv 2605.21742). Lines beginning "% VERIFY" flag fields to confirm against the
+% primary source before final citation. VERIFY remarks are kept outside entry braces
+% so they do not break citeproc rendering.
+
+@misc{mcdowell2026correcting_imbalance_pfn,
+  title         = {Correcting Class Imbalance in Prior-Data Fitted Networks for Tabular Classification},
+  author        = {McDowell, Samuel and Stromberg, Nathan and Sankar, Lalitha},
+  year          = {2026},
+  eprint        = {2605.21742},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2605.21742},
+  note          = {Accepted at Information Theory Workshop (ITW); acceptance venue unverified beyond the arXiv comment field (``5 pages, 6 figures, Information Theory Workshop (ITW)''), which does not specify IEEE sponsorship.}
+}
+
+% VERIFY page range against PMLR v202 (digest: 25660--25676).
+@inproceedings{nagler2023statistical_foundations_pfn,
+  title     = {Statistical Foundations of Prior-Data Fitted Networks},
+  author    = {Nagler, Thomas},
+  booktitle = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
+  series    = {PMLR},
+  volume    = {202},
+  year      = {2023},
+  url       = {https://proceedings.mlr.press/v202/nagler23a.html}
+}
+
+% arXiv 2023; published in TMLR 2025. Key renamed 2026-07-06 (han2023 -> han2025) to match publication year.
+@article{han2025kernel_regression_icl,
+  title   = {Understanding Emergent In-Context Learning from a Kernel Regression Perspective},
+  author  = {Han, Chi and Wang, Ziqi and Zhao, Han and Ji, Heng},
+  journal = {Transactions on Machine Learning Research (TMLR)},
+  year    = {2025},
+  url     = {https://arxiv.org/abs/2305.12766}
+}
+
+@article{saerens2002adjusting_priors,
+  title     = {Adjusting the Outputs of a Classifier to New a Priori Probabilities: A Simple Procedure},
+  author    = {Saerens, Marco and Latinne, Patrice and Decaestecker, Christine},
+  journal   = {Neural Computation},
+  volume    = {14},
+  number    = {1},
+  pages     = {21--41},
+  year      = {2002},
+  publisher = {MIT Press},
+  doi       = {10.1162/089976602753284446},
+  url       = {https://direct.mit.edu/neco/article/14/1/21/6577}
+}
+
+% Preprint (Lexsi Labs). VERIFY author list against arXiv author block.
+@misc{tanna2026data_presentation_resampling,
+  title         = {Data Presentation Over Architecture: Resampling Strategies for Credit Risk Prediction with Tabular Foundation Models},
+  author        = {Tanna, Aditya and Solanki, Mitul and Bouadi, Mohamed and Bouarour, Nassim and Seth, Pratinav and Sankarapu, Vinay Kumar},
+  year          = {2026},
+  eprint        = {2605.18635},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2605.18635}
+}
+
+@article{vandengoorbergh2022harm_imbalance_corrections,
+  title   = {The harm of class imbalance corrections for risk prediction models: illustration and simulation using logistic regression},
+  author  = {van den Goorbergh, Ruben and van Smeden, Maarten and Timmerman, Dirk and Van Calster, Ben},
+  journal = {Journal of the American Medical Informatics Association (JAMIA)},
+  volume  = {29},
+  number  = {9},
+  pages   = {1525--1534},
+  year    = {2022},
+  doi     = {10.1093/jamia/ocac093},
+  url     = {https://doi.org/10.1093/jamia/ocac093}
+}
+
+@misc{lee2026distpfn_label_shift_tabpfn,
+  title         = {Mitigating Label Shift in Tabular In-Context Learning via Test-Time Posterior Adjustment (DistPFN)},
+  author        = {Lee, Seunghan},
+  year          = {2026},
+  eprint        = {2605.04363},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2605.04363},
+  note          = {Single-author arXiv preprint (comment field: ``ICML 2026''); an earlier ICLR 2026 OpenReview submission of related work was withdrawn. Cited as the arXiv version.}
+}
+
+% Key renamed 2026-07-06 (xie2021 -> xie2022) to match publication year (ICLR 2022).
+@inproceedings{xie2022explanation_icl_bayesian,
+  title     = {An Explanation of In-context Learning as Implicit Bayesian Inference},
+  author    = {Xie, Sang Michael and Raghunathan, Aditi and Liang, Percy and Ma, Tengyu},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2022},
+  url       = {https://arxiv.org/abs/2111.02080}
+}
+
+@article{tomasev2013minority_hubs,
+  title     = {Class imbalance and the curse of minority hubs},
+  author    = {Tomašev, Nenad and Mladeni{\'c}, Dunja},
+  journal   = {Knowledge-Based Systems},
+  volume    = {53},
+  pages     = {157--172},
+  year      = {2013},
+  publisher = {Elsevier},
+  doi       = {10.1016/j.knosys.2013.08.031},
+  url       = {https://www.sciencedirect.com/science/article/abs/pii/S0950705113002682}
 }

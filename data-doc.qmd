@@ -324,7 +324,7 @@ cat(str_glue("Network edges (customer–merchant pairs): {comma(n)}"))
 
 # PaySim {#sec-paysim}
 
-PaySim is a mobile money simulator based on one month of anonymised transaction logs from a real mobile money service operating in an African country [@Lopez2016PaySim]. It is widely used for fraud detection research due to its scale and realistic transfer patterns. Fraud occurs exclusively in `TRANSFER` and `CASH_OUT` transaction types.
+PaySim is a mobile money simulator based on one month of anonymised transaction logs from a real mobile money service operating in an African country [@lopezrojas2016_paysim]. It is widely used for fraud detection research due to its scale and realistic transfer patterns. Fraud occurs exclusively in `TRANSFER` and `CASH_OUT` transaction types.
 
 ```{r paysim-schema}
 get_schema("raw_paysim_ps_20174392719_1491204439457_log") |>
