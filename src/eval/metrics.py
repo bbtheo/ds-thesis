@@ -64,14 +64,19 @@ def ap_at_prevalence(y_true: np.ndarray, y_score: np.ndarray, prevalence: float)
         precision(t) = pi * TPR(t) / (pi * TPR(t) + (1 - pi) * FPR(t))
 
     and integrated as AP = sum_k (recall_k - recall_{k-1}) * precision_k over the
-    score-sorted thresholds. At ``pi`` equal to the observed prevalence this equals
-    ``sklearn.metrics.average_precision_score`` to machine precision (scores are
-    continuous so ties are negligible).
+    distinct-score thresholds. At ``pi`` equal to the observed prevalence this equals
+    ``sklearn.metrics.average_precision_score`` to machine precision.
+
+    Tied scores are grouped into a single threshold (as in sklearn's PR curve):
+    a threshold can only sit between distinct score values, so evaluating every
+    row as its own operating point would make the result depend on the incidental
+    order of tied rows and bias it upward.
     """
     y_true = np.asarray(y_true, dtype=np.int64)
     y_score = np.asarray(y_score, dtype=np.float64)
     order = np.argsort(-y_score, kind="mergesort")
     y_sorted = y_true[order]
+    s_sorted = y_score[order]
     P = int(y_sorted.sum())
     N = len(y_sorted) - P
     if P == 0 or N == 0:
@@ -79,6 +84,11 @@ def ap_at_prevalence(y_true: np.ndarray, y_score: np.ndarray, prevalence: float)
 
     tp = np.cumsum(y_sorted == 1)
     fp = np.cumsum(y_sorted == 0)
+    # Operating points exist only at distinct-score boundaries: keep the LAST
+    # index of each tied block (cumulative counts there include the whole block).
+    thresh_idx = np.r_[np.flatnonzero(np.diff(s_sorted) != 0.0), len(s_sorted) - 1]
+    tp = tp[thresh_idx]
+    fp = fp[thresh_idx]
     recall = tp / P
     fpr = fp / N
     pi = float(prevalence)

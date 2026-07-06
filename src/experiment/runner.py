@@ -4,14 +4,16 @@ Single-run experiment orchestrator.
 Each run is fully specified by a config dict:
     dataset     : str   — dataset key from schema.py
     model       : str   — model key ("xgboost", "catboost", "tabpfn_v2", "tabpfn_25", "tabpfn_26", "tabiclv2")
-    condition   : str   — "C1", "C2", "C3", "C4"  (C3/C4 require RAP modules, Phase 3)
+    condition   : str   — "C1", "C2", "C3", "C4"  (C3/C4 = RAP retrieval, Phase 3)
     seed        : int   — random seed (42, 123, or 7)
-    batch_size  : int   — test batch size for per-batch retrieval (C3/C4 only;
-                          normalised to None for C1/C2, where the context is
-                          fixed and prediction chunking cannot affect results)
-    k           : int | None   — retrieval pool size (C3/C4 only)
     fraud_ratio : float | None — target fraud ratio in context (C4 only)
-    metric      : str | None   — retrieval metric "cosine"/"euclidean" (C3/C4 only)
+    metric      : str | None   — retrieval metric "cosine"/"euclidean" (C3/C4 only;
+                                 defaults to "cosine")
+    batch_size  : int | None   — IGNORED for C3/C4 (the per-group design auto-picks
+                                 the number of groups; normalised to None) and for
+                                 C1/C2 (fixed context). Not a result-affecting factor.
+    k           : int | None   — IGNORED (C3/C4 retrieval depth is derived from
+                                 context_size; normalised to None, out of the hash)
 
 The run_id is the first 12 hex chars of the SHA-256 hash of the canonically
 serialised config (includes a pipeline schema version).
@@ -49,6 +51,10 @@ from src.models.gbdt import GBDT_MODELS, build_gbdt
 
 RESULTS_DIR = Path("results/runs")
 GBDT_KEYS = list(GBDT_MODELS.keys())
+
+# C3/C4 (RAP retrieval) run on these FTMs only — a settled grid-design decision
+# (Phase 3, 2026-06-18); enforced in _validate_config.
+_RAP_FTM_MODELS = ("tabpfn_3", "tabiclv2")
 SEEDS = [42, 123, 7]
 
 # Bump this whenever model defaults or pipeline logic changes to
@@ -99,13 +105,19 @@ def _canonical_config(cfg: dict) -> dict:
     # batch_size is normalised to None (like k/fraud_ratio/metric) to keep
     # it out of the run_id hash and the results row.
     cond = cfg["condition"]
-    # Retrieval params (batch_size/k/metric) are meaningful only for C3/C4, and
-    # fraud_ratio only for C4. Normalise the irrelevant ones to None so a stray
-    # value cannot fork the run_id of an otherwise-identical run (idempotency).
+    # Normalise factors that do not affect a given condition's result to None so a
+    # stray value cannot fork the run_id of an otherwise-identical run (idempotency).
+    #
+    # C3/C4 use the per-group RAP path: the number of groups is chosen automatically
+    # (silhouette) and the retrieval depth is derived from context_size, so neither
+    # batch_size nor k is an experimental factor — both are normalised to None and
+    # stay out of the hash. The real C3/C4 factors are `metric` (default "cosine")
+    # and, for C4, `fraud_ratio`. C1/C2 normalisation is unchanged, so their hashes
+    # and cached results are untouched.
     if cond in ("C3", "C4"):
-        batch_size = int(cfg.get("batch_size") or 128)
-        k = cfg.get("k")
-        metric = cfg.get("metric")
+        batch_size = None
+        k = None
+        metric = cfg.get("metric") or "cosine"
     else:
         batch_size = k = metric = None
     fraud_ratio = cfg.get("fraud_ratio") if cond == "C4" else None
@@ -174,6 +186,27 @@ def _validate_config(cfg: dict) -> None:
         raise ValueError(
             f"GBDT model {model!r} only supports condition C1 "
             f"(trains on full training set). Got {cond!r}."
+        )
+
+    # C3/C4 are FTM-only retrieval conditions (GBDTs already rejected above),
+    # restricted to the two grid FTMs (design decision, Phase 3).
+    if cond in ("C3", "C4") and model not in _RAP_FTM_MODELS:
+        raise ValueError(
+            f"Conditions C3/C4 run only on {_RAP_FTM_MODELS} (grid design). "
+            f"Got model {model!r}."
+        )
+
+    # C4 needs a target fraud ratio; any other condition must not have one —
+    # canonicalisation would silently null it, hiding a likely caller mistake.
+    fr = cfg.get("fraud_ratio")
+    if cond == "C4":
+        if fr is None:
+            raise ValueError("Condition C4 requires fraud_ratio (e.g. 0.05..0.5).")
+        if not (0.0 < float(fr) < 1.0):
+            raise ValueError(f"C4 fraud_ratio must be in (0, 1), got {fr!r}.")
+    elif fr is not None:
+        raise ValueError(
+            f"fraud_ratio is a C4-only factor; got fraud_ratio={fr!r} with {cond}."
         )
 
 
@@ -280,8 +313,11 @@ def run(cfg: dict, data: tuple | None = None) -> Path:
     Returns the path to the written parquet file, or the existing path if
     the run was already complete (idempotent).
     """
-    cfg = _canonical_config(cfg)
+    # Validate the RAW cfg first: canonicalisation nulls stray factors (e.g. a
+    # fraud_ratio passed with C3), so validating after it would let those slip
+    # through silently — the exact mistake the fraud_ratio guard is meant to catch.
     _validate_config(cfg)
+    cfg = _canonical_config(cfg)
     run_id = config_hash(cfg)
     out_path = RESULTS_DIR / f"{run_id}.parquet"
 
@@ -333,6 +369,10 @@ def run(cfg: dict, data: tuple | None = None) -> Path:
     model_key = cfg["model"]
     condition = cfg["condition"]
 
+    # C3/C4-only outputs (NULL for GBDT and C1/C2). Populated by the per-group path.
+    n_groups: int | None = None
+    group_silhouette: float | None = None
+
     # Timing is split into three phases so one-time setup cost (model build,
     # FTM weight loading/download) never inflates fit/predict comparisons:
     #   setup_s   — model construction + weight loading
@@ -356,15 +396,15 @@ def run(cfg: dict, data: tuple | None = None) -> Path:
         context_fraud_n = int(y_train.sum())
         context_fraud_unique = context_fraud_n  # GBDT: no resampling
 
-    elif model_key in FTM_MODELS:
+    elif model_key in FTM_MODELS and condition in ("C1", "C2"):
         context_limit = CONTEXT_LIMITS[model_key]
         context_size = min(len(y_train), int(context_limit * _CONTEXT_FRACTION))
 
         # C1/C2: build context once, fit once, predict all test rows
         X_ctx, y_ctx = _build_context(condition, X_train, y_train, context_size, rng)
         context_fraud_n = int(y_ctx.sum())
-        # C1/C2 sample fraud without replacement, so unique == n. C4 (Phase 3)
-        # oversamples with replacement and must recompute this from the indices.
+        # C1/C2 sample fraud without replacement, so unique == n. C4
+        # oversamples with replacement and recomputes this from the indices.
         context_fraud_unique = context_fraud_n
 
         t0 = time.perf_counter()
@@ -385,6 +425,86 @@ def run(cfg: dict, data: tuple | None = None) -> Path:
             model, X_test_scored, batch_size=_PREDICT_CHUNK.get(model_key, 512)
         )
         predict_s = time.perf_counter() - t0
+
+    elif model_key in FTM_MODELS:  # C3 / C4 — RAP per-group retrieval path (Phase 3)
+        from src.rap.context import RetrievalContextBuilder
+
+        context_limit = CONTEXT_LIMITS[model_key]
+        context_size = min(len(y_train), int(context_limit * _CONTEXT_FRACTION))
+        predict_chunk = _PREDICT_CHUNK.get(model_key, 512)
+
+        # setup_s = model build/load + scaler + retrieval indices + test grouping
+        # (+ per-group kNN query/sampling time, accumulated below).
+        t0 = time.perf_counter()
+        model = build_ftm(
+            model_key, device="cuda", seed=cfg["seed"], n_estimators=cfg["n_estimators"]
+        )
+        model.ensure_loaded()
+        builder = RetrievalContextBuilder(
+            X_train, y_train, metric=cfg["metric"], seed=cfg["seed"]
+        )
+        X_test_scaled = builder.scale(X_test_scored)
+        labels, centres, n_groups, group_silhouette = builder.group_test(X_test_scaled)
+        setup_s = time.perf_counter() - t0
+
+        present = np.unique(labels)
+        print(
+            f"[runner] C3/C4 grouping: G={n_groups} "
+            f"(silhouette={group_silhouette:.4f}), {len(present)} non-empty groups",
+            flush=True,
+        )
+
+        # One retrieval + one FTM refit per group; predict that group's rows.
+        probs = np.empty(len(y_test_scored), dtype=np.float64)
+        fit_s = 0.0
+        predict_s = 0.0
+        retrieval_s = 0.0
+        fraud_n_acc: list[int] = []
+        fraud_unique_acc: list[int] = []
+        guard_fires = 0
+        for gi, g in enumerate(present):
+            mask = labels == g
+            # Per-group seeded RNG (order-independent) for C4 shuffle / oversampling.
+            rng_g = np.random.default_rng([cfg["seed"], int(g)])
+            t0 = time.perf_counter()
+            X_ctx, y_ctx, stats = builder.build(
+                condition, centres[g], context_size,
+                fraud_ratio=cfg["fraud_ratio"], rng=rng_g,
+            )
+            retrieval_s += time.perf_counter() - t0
+            fraud_n_acc.append(stats["fraud_n"])
+            fraud_unique_acc.append(stats["fraud_unique"])
+            guard_fires += int(stats["guard_fired"])
+
+            t0 = time.perf_counter()
+            model.fit(X_ctx, y_ctx)
+            fit_s += time.perf_counter() - t0
+
+            t0 = time.perf_counter()
+            probs[mask] = _predict_proba_batched(
+                model, X_test_scored[mask], batch_size=predict_chunk
+            )
+            predict_s += time.perf_counter() - t0
+            print(
+                f"  [group {gi+1}/{len(present)}] n={int(mask.sum())} "
+                f"ctx_fraud={stats['fraud_n']} (unique={stats['fraud_unique']})",
+                flush=True,
+            )
+
+        # Per-group kNN query + sampling time belongs to setup_s (documented as
+        # "scaler + retrieval index + test grouping" for C3/C4) — before 2026-07-06
+        # it was timed into NO column, so parquets written earlier record setup_s
+        # values that are lower bounds on RAP retrieval overhead (review A-7).
+        setup_s += retrieval_s
+
+        # Per-group context fraud varies (C3) or is constant (C4); report the mean.
+        context_fraud_n = int(round(float(np.mean(fraud_n_acc))))
+        context_fraud_unique = int(round(float(np.mean(fraud_unique_acc))))
+        if guard_fires:
+            print(
+                f"[runner] single-class guard fired in {guard_fires}/{len(present)} groups",
+                flush=True,
+            )
 
     else:
         raise ValueError(f"Unknown model key: {model_key!r}")
@@ -439,6 +559,8 @@ def run(cfg: dict, data: tuple | None = None) -> Path:
         "context_size":     context_size,
         "context_fraud_n":  context_fraud_n,
         "context_fraud_unique": context_fraud_unique,
+        "n_groups":         n_groups,          # C3/C4 only (else None)
+        "group_silhouette": group_silhouette,  # C3/C4 only (else None)
         "tabpfn_lib":       _LIB_VERSIONS["tabpfn"],
         "tabicl_lib":       _LIB_VERSIONS["tabicl"],
         "setup_s":          setup_s,
@@ -448,7 +570,12 @@ def run(cfg: dict, data: tuple | None = None) -> Path:
     }
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame([row]).to_parquet(out_path, index=False)
+    # Coerce the C3/C4-only columns to explicit nullable dtypes so a None row
+    # (GBDT/C1/C2) still serialises as int64/double rather than Arrow `null`.
+    # Otherwise an all-None single-row column becomes type `null`, which fails to
+    # unify with the int64/double C3/C4 rows under a naive arrow::open_dataset.
+    df = pd.DataFrame([row]).astype({"n_groups": "Int64", "group_silhouette": "float64"})
+    df.to_parquet(out_path, index=False)
 
     print(
         f"[runner] DONE  {run_id} | "
