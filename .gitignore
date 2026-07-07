@@ -17,6 +17,8 @@ logs/
 
 # Generated outputs from Quarto
 data-doc_files/
+thesis.pdf
+thesis_files/
 
 # R
 .Rproj.user/
