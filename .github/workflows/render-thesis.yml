@@ -14,10 +14,6 @@ permissions:
 jobs:
   render:
     runs-on: ubuntu-latest
-    env:
-      # renv.lock is stale (see CLAUDE.md notes); CI installs only the
-      # packages the thesis chunks actually use, so keep renv out of the way.
-      RENV_CONFIG_AUTOLOADER_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
 

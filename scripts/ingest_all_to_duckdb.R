@@ -2,10 +2,10 @@
 
 suppressPackageStartupMessages({
   if (!requireNamespace("DBI", quietly = TRUE)) {
-    stop("Package 'DBI' is required. Install with renv::install('DBI').")
+    stop("Package 'DBI' is required. Install with install.packages('DBI').")
   }
   if (!requireNamespace("duckdb", quietly = TRUE)) {
-    stop("Package 'duckdb' is required. Install with renv::install('duckdb').")
+    stop("Package 'duckdb' is required. Install with install.packages('duckdb').")
   }
 })
 
@@ -18,11 +18,7 @@ suppressPackageStartupMessages({
 
 parse_args <- function(args) {
   defaults <- list(
-    manifest = if (file.exists("scratchpad/dataset_manifest.csv")) {
-      "scratchpad/dataset_manifest.csv"
-    } else {
-      "scratchpad/dataset_manifest_template.csv"
-    },
+    manifest = "scratchpad/dataset_manifest.csv",
     db = "data/duckdb/fraud_datasets.duckdb",
     raw_root = "data/raw",
     stage_root = "data/stage",

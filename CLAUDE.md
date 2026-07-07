@@ -20,16 +20,17 @@ See `scratchpad/experiment-plan.md` for the full experiment design. **Note:** th
 
 ---
 
-## Current Status (2026-06-13)
+## Current Status (2026-07-07)
 
 - **Pipeline version 4** (`_PIPELINE_VERSION` in `src/experiment/runner.py`). v4 changes (all fold into one bump, full rerun): negative-subsampled test set on large datasets (keep ALL positives, cap negatives via `test_neg_cap` in schema; default 30,000) with **prevalence-corrected PR-AUC** (`ap_at_prevalence` in `metrics.py`); `n_estimators` added to the config (default 8); model-aware predict chunk (`_PREDICT_CHUNK`, does not affect results); new result columns (see Results Schema). v3 changes were: banksim grouped split, conservative Recall@FPR, `batch_size=None` for C1/C2, timing split. Bump the version whenever model defaults or pipeline logic changes — it is part of the config hash and invalidates cached results.
-- **`tabpfn` upgraded to 8.0.8** (was 7.1.1) and **TabPFN v3 added as a 5th FTM** (`tabpfn_3`). The library version is recorded per-run (`tabpfn_lib`/`tabicl_lib`) but is NOT in the config hash — the v4 bump + full rerun keeps all results on one library, avoiding a silent mix. **v3 license accepted 2026-06-14** at https://ux.priorlabs.ai for the `TABPFN_TOKEN` account (verified live); `tabpfn_3` is now in `run_pending_c1c2.py` `FTM_MODELS` and the grid rerun is filling its pending cells. (All v2/2.5/2.6/v3 licenses are accepted.)
-- **All pipeline-v2/v3 results in `results/runs/` are stale** and must be rerun under v4 — except cc_2025, whose old files are kept as documentation of degeneracy (do not rerun).
+- **`tabpfn` upgraded to 8.0.8** (was 7.1.1) and **TabPFN v3 added as a 5th FTM** (`tabpfn_3`). The library version is recorded per-run (`tabpfn_lib`/`tabicl_lib`) but is NOT in the config hash — the v4 bump + full rerun keeps all results on one library, avoiding a silent mix. **v3 license accepted 2026-06-14** at https://ux.priorlabs.ai for the `TABPFN_TOKEN` account (verified live); `tabpfn_3` is in `run_pending_c1c2.py` `FTM_MODELS`. (All v2/2.5/2.6/v3 licenses are accepted.)
+- **`results/runs/` holds only pipeline-v4 rows** (the v4 rerun is complete). The only surviving pre-v4 results are the 23 cc_2025 parquets in `results/runs_cc2025_degenerate/`, kept deliberately as documentation of that dataset's degeneracy (do not rerun).
 - **C1/C2 v4 rerun** via `scripts/run_pending_c1c2.py` (now loads each (dataset, seed) split once and reuses it across models/conditions; idempotent). Enumerates all pending C1/C2 configs for the formal grid (cc_2025 excluded).
 - **CatBoost runs with `thread_count=1`** (set in `gbdt.py`). At the default thread count CatBoost 1.2.10 SIGSEGVs in its TBB pool during the long fit on paysim (~5M rows) and took down the whole unattended driver on 2026-06-14. CatBoost CPU training is thread-count-invariant (verified bit-identical), so this changes no results — it is just slower on the largest datasets. NOT a memory/data/metric issue (load is 3.5 GB/4 s). See the auto-memory note `catboost-paysim-segfault`.
-- **C3/C4 (RAP retrieval) are implemented (Phase 3, 2026-06-18).** `src/rap/{retriever,sampler,context}.py` plus a per-group FTM path in the runner. Per-group design (one retrieval + one FTM refit per silhouette-chosen test cluster); no `pipeline_version` bump (C1/C2/GBDT hashes/results untouched, only new C3/C4 rows). C3/C4 FTMs are `tabpfn_3` + `tabiclv2` only. Smoke-tested on `ai_banking` (tabiclv2 C3+C4) and `eu_cc` (tabpfn_3 C3) — idempotent, finite metrics. Dev inspection: `scripts/dev_rap_validation.py`. See `scratchpad/phase3-plan.md`. **Phase-4 grid driver built + launched (2026-06-18):** `scripts/run_pending_c3c4.py` enumerates every pending C3/C4 formal-grid cell (cc_2025 excluded): C3 + C4 ratio sweep {0.05,0.10,0.20,0.30,0.50} × {`tabiclv2`,`tabpfn_3`} × 13 dataset-seed units = **156 runs** (`metric=cosine`, `n_estimators=4`); idempotent, loads each split once. Running unattended → `results/run_c3c4.log`. **Still open:** the cosine-vs-euclidean A/B (the grid is cosine-only — euclidean is a separate study, not in this sweep) and the shared-retrieval-index-across-ratios optimisation (deferred — the driver rebuilds the index per run; grouping is a small fraction of per-group FTM predict).
+- **C3/C4 (RAP retrieval) are implemented (Phase 3, 2026-06-18).** `src/rap/{retriever,sampler,context}.py` plus a per-group FTM path in the runner. Per-group design (one retrieval + one FTM refit per silhouette-chosen test cluster); no `pipeline_version` bump (C1/C2/GBDT hashes/results untouched, only new C3/C4 rows). C3/C4 FTMs are `tabpfn_3` + `tabiclv2` only. Smoke-tested on `ai_banking` (tabiclv2 C3+C4) and `eu_cc` (tabpfn_3 C3) — idempotent, finite metrics. Dev inspection: `scripts/dev_rap_validation.py`. See `scratchpad/phase3-plan.md`. **Phase-4 grid driver built + launched (2026-06-18):** `scripts/run_pending_c3c4.py` enumerates every pending C3/C4 formal-grid cell (cc_2025 excluded): C3 + C4 ratio sweep {0.05,0.10,0.20,0.30,0.50} × {`tabiclv2`,`tabpfn_3`} × 13 dataset-seed units = **156 runs** (`metric=cosine`, `n_estimators=4`); idempotent, loads each split once. **All grids are COMPLETE** (formal C1–C4, the C2 ratio × context-size grid, the RAP design-space sweep, and the relevance ablation). Headline: **RAP retrieval is a negative result** (C3 < C1 and C4 < C2 on all 5 informative datasets); **C2 stratified balancing is the positive finding** (zero-shot FTMs at/above external SOTA). See `thesis-outline.md` for the full result narrative with provenance.
 - **Full review applied (2026-07-06):** the corrections in `scratchpad/review-2026-07-06/correction-log.md` are implemented — outline/bib fixes, `ap_at_prevalence` tie fix (+ `tests/test_metrics.py`), thread-pinned C3/C4 grouping (`threadpoolctl`), per-group retrieval now timed into `setup_s`, runner validation (C3/C4 model restriction, stray `fraud_ratio` rejected), verified checkpoint context limits (v3 = 1M, 2.6 = 100k — our 50k is a design budget), stale parquets quarantined. BLK-1 resolved: the eu_cc SOTA figure 0.897 was the single best run (tabpfn_3, C2, seed 7); the fair seed-mean is **0.869** vs external 0.867 → "at par", not "above".
-- **Not created yet:** `src/experiment/grid.py`, `configs/experiment_grid.yaml`, and the `analysis/` R scripts. The run scripts in `scripts/` currently serve as the grid driver. `thesis.qmd` and `methodology.qmd` exist as first drafts.
+- **Repo cleaned for public release (2026-07-07):** deleted the abandoned-direction lit files, one-off probe scripts, superseded drivers (`run_c2.py`, `diag_c1_vs_c4.py`, `diag_rap_designspace.py`, the `*_daemon.sh` wrappers), rendered artifacts (`datasets.html`, `data-doc.typ`, tracked `.quarto/` cache), the dead `references.bib`, `main.py`, and the broken renv machinery (`.Rprofile`, `renv.lock`, `renv/`). `methodology.qmd` moved to `scratchpad/methodology-draft.qmd` (superseded draft; its bibliography path is stale). `results/runs_stale_prev4/` trimmed to the 23 cc_2025 files and renamed `results/runs_cc2025_degenerate/`; `results/diag/` trimmed to the two anchor-injection evidence files. **`scratchpad/eda/` was deleted entirely (user decision)** — the EDA figures cited in `thesis-outline.md` no longer exist in the repo and must be regenerated for the thesis document itself.
+- **Not created yet:** the `analysis/` R scripts (Phase 5). The run scripts in `scripts/` serve as the grid driver. `thesis.qmd` renders only `sections/introduction.qmd` so far — the remaining chapters exist as `thesis-outline.md`, not as prose.
 
 ---
 
@@ -54,28 +55,35 @@ ds-gradu/
 │   └── experiment/
 │       └── runner.py          # one idempotent run: dataset × model × condition × seed
 ├── scripts/
-│   ├── validate_datasets.py   # loads all datasets, prints shapes and fraud rates
-│   ├── run_pending_c1c2.py    # enumerate + run all pending C1/C2 formal-grid runs
-│   ├── run_pending_c3c4.py    # enumerate + run all pending C3/C4 (RAP) formal-grid runs (cosine, n_est=4)
-│   ├── dev_rap_validation.py  # Phase 3 dev: inspect C3/C4 grouping + retrieval on ai_banking (cosine vs euclidean)
-│   ├── run_c2.py              # older C2-only driver (superseded by run_pending_c1c2.py)
-│   └── ingest_all_to_duckdb.R # raw CSVs → DuckDB ingestion
+│   ├── validate_datasets.py       # loads all datasets, prints shapes and fraud rates
+│   ├── run_pending_c1c2.py        # enumerate + run all pending C1/C2 formal-grid runs
+│   ├── run_pending_c3c4.py        # enumerate + run all pending C3/C4 (RAP) formal-grid runs (cosine, n_est=4)
+│   ├── run_c2_grid.py             # C2 fraud-ratio × context-size cross-tab sweep → results/runs_c2grid
+│   ├── run_rap_designspace.py     # RAP design-space sweep (metric × granularity × sampling) → results/runs_rapds
+│   ├── run_relevance_ablation.py  # ratio-matched 2×2 relevance ablation (KR/RK arms) → results/runs_ablation
+│   ├── diag_hybrid_anchor.py      # anchor-injection case study (banksim/tabiclv2) → results/diag
+│   ├── analyze_c3c4.py            # read-only summary pivots over the C3/C4 grid rows
+│   ├── dev_rap_validation.py      # Phase 3 dev: inspect C3/C4 grouping + retrieval on ai_banking
+│   └── ingest_all_to_duckdb.R     # raw CSVs → DuckDB ingestion (manifest: scratchpad/dataset_manifest.csv)
 ├── results/
-│   ├── runs/                  # one parquet per completed run
-│   ├── run_c1c2.log           # log of the C1/C2 v3 rerun (superseded)
-│   └── run_c1c2_v4.log        # log of the ongoing C1/C2 v4 rerun
-├── analysis/                  # PLANNED (Phase 5) — results.R, tables.R, plots.R
-├── configs/                   # empty; experiment_grid.yaml not created
+│   ├── runs/                      # formal C1–C4 grid — one parquet per run (all pipeline v4)
+│   ├── runs_c2grid/               # C2 ratio × context-size sweep
+│   ├── runs_rapds/                # RAP design-space sweep
+│   ├── runs_ablation/             # relevance ablation
+│   ├── runs_cc2025_degenerate/    # pre-v4 cc_2025 runs kept as degeneracy documentation
+│   └── diag/                      # diag_hybrid.log + preds parquet (anchor-injection evidence, cited in outline §7.2)
 ├── data/
 │   ├── duckdb/
-│   │   └── fraud_datasets.duckdb   # all 7 datasets ingested
-│   └── raw/                        # original source CSVs
+│   │   └── fraud_datasets.duckdb   # all 7 datasets ingested (not versioned)
+│   └── raw/                        # original source CSVs (not versioned)
+├── tests/                     # metrics regression tests (pytest, dev dependency via uv)
+├── sections/                  # thesis chapter sources included by thesis.qmd (introduction.qmd so far)
+├── thesis.qmd                 # main thesis document (Quarto → Typst PDF / HTML; CI renders on push)
+├── thesis-outline.md          # distilled 9-chapter outline with per-claim result provenance
 ├── data-doc.qmd               # dataset documentation (Quarto + Typst)
 ├── scratchpad/                # planning docs and working notes (experiment-plan.md lives here)
 └── pyproject.toml             # Python deps managed by uv
 ```
-
-`thesis.qmd` (main thesis document, 6-chapter first draft) and `methodology.qmd` exist at the repo root; `tests/` holds the metrics regression tests (pytest, dev dependency via uv).
 
 ---
 
@@ -175,7 +183,7 @@ GBDTs run under C1 only — trained on full training set (no context limit). Thi
 
 ## Experiment Grid
 
-**5 FTMs** (tabpfn_v2, tabpfn_25, tabpfn_26, tabpfn_3, tabiclv2). The v3 license was accepted 2026-06-14, so `tabpfn_3` is now in `run_pending_c1c2.py` `FTM_MODELS` and the idempotent rerun is filling its pending cells across the grid.
+**5 FTMs** (tabpfn_v2, tabpfn_25, tabpfn_26, tabpfn_3, tabiclv2). The v3 license was accepted 2026-06-14; `tabpfn_3` is in `run_pending_c1c2.py` `FTM_MODELS`. The grid is fully run.
 
 - 16 dataset-seed units (5 datasets × 3 seeds + FiFAR × 1 seed)
 - FTM core: 5 models × 4 conditions × 16 = 320
@@ -211,7 +219,7 @@ Notes (pipeline v4):
 - **C3/C4 (RAP retrieval) — Phase 3.** Per-group design: the scored test set is clustered (k-means; `G` chosen by silhouette over `k=2..20`, recorded as the **output** `n_groups`; `group_silhouette` = selection score), and the FTM is refit once per group around its cluster centre. `n_groups`/`group_silhouette` are **C3/C4-only** (`NULL` for GBDT and C1/C2; written as nullable `Int64`/`float64` so an all-None row never becomes Arrow `null` type). `metric` (`'cosine'` default / `'euclidean'`) and, for C4, `fraud_ratio` are the real C3/C4 factors; **`batch_size` and `k` are dropped from the C3/C4 config hash** (grouping is automatic, retrieval depth is derived from `context_size`) and are `None` for all conditions. C1/C2/GBDT hashes are unchanged → existing results stay valid, **no `pipeline_version` bump**. `context_fraud_n` is the per-group mean fraud count (C3 varies by group; C4 = `round(fraud_ratio·context_size)`); `context_fraud_unique` < `context_fraud_n` only under C4 with-replacement oversampling. C3/C4 FTMs are `tabpfn_3` + `tabiclv2` only.
 - banksim uses a grouped 80/20 split by `customer`; other random-split datasets use stratified splits.
 - Filter analysis to `pipeline_version == 4` — v2/v3 rows are stale (except cc_2025, kept deliberately).
-- **Stale v2/v3 parquets were quarantined 2026-07-06** into `results/runs_stale_prev4/` (90 files, incl. the deliberately-kept cc_2025 degeneracy documentation). `results/runs/` now holds only v4 rows (312 formal-grid + 4 ai_banking dev runs), so `arrow::open_dataset("results/runs")` unifies cleanly; still filter to the 5 formal datasets.
+- **Stale pre-v4 parquets:** quarantined 2026-07-06, then trimmed 2026-07-07 — only the 23 cc_2025 degeneracy-documentation files survive, in `results/runs_cc2025_degenerate/`. `results/runs/` holds only v4 rows (312 formal-grid + 4 ai_banking dev runs), so `arrow::open_dataset("results/runs")` unifies cleanly; still filter to the 5 formal datasets.
 - **`ap_at_prevalence` tie handling fixed 2026-07-06** (review C-1): tied scores are now grouped into one threshold (sklearn-equivalent); regression tests in `tests/test_metrics.py`. Recorded v4 PR-AUCs were computed pre-fix; measured bias ≤ +0.002 on the worst collapsed C4 columns, ~+0.00001 on C1/C2 — below every claimed effect; state this bound in the thesis methods.
 
 ---

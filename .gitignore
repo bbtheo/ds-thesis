@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+.pytest_cache/
 
 # Data (large, not versioned; data/external holds small tracked figure-source data)
 /data/*
@@ -17,9 +18,12 @@ logs/
 
 # Generated outputs from Quarto
 data-doc_files/
+data-doc.typ
+data-doc.pdf
 thesis.pdf
 thesis.html
 thesis_files/
+.quarto/
 
 # R
 .Rproj.user/
