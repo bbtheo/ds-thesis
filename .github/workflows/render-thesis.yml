@@ -8,6 +8,9 @@ concurrency:
   group: render-thesis-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write # needed to create/update the rolling "latest" release
+
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -35,11 +38,24 @@ jobs:
             any::readr
             any::scales
 
-      - name: Render thesis.qmd
+      - name: Render thesis.qmd (PDF via Typst + self-contained HTML)
         run: quarto render thesis.qmd
 
       - uses: actions/upload-artifact@v4
         with:
-          name: thesis-pdf
-          path: thesis.pdf
+          name: thesis
+          path: |
+            thesis.pdf
+            thesis.html
           if-no-files-found: error
+
+      - name: Publish to rolling "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view latest --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create latest --repo "$GITHUB_REPOSITORY" \
+              --title "Latest thesis render" \
+              --notes "Auto-updated on every push to main."
+          gh release upload latest thesis.pdf thesis.html \
+            --repo "$GITHUB_REPOSITORY" --clobber
