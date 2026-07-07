@@ -527,7 +527,7 @@
   year         = {2015},
   organization = {IEEE},
   doi          = {10.1109/SSCI.2015.33},
-  note         = {Source of the MLG-ULB European credit-card fraud dataset. VERIFY metadata.}
+  note         = {Source of the MLG-ULB European credit-card fraud dataset. Metadata verified against dblp and the Kaggle dataset citation, 2026-07-07.}
 }
 
 @inproceedings{lopezrojas2014banksim,
@@ -536,7 +536,8 @@
   booktitle    = {Proceedings of the 26th European Modeling and Simulation Symposium (EMSS 2014)},
   pages        = {144--152},
   year         = {2014},
-  note         = {Source of the BankSim dataset. VERIFY metadata.}
+  isbn         = {978-88-97999-38-6},
+  note         = {Source of the BankSim dataset. Metadata verified against the official EMSS 2014 proceedings PDF, 2026-07-07.}
 }
 
 
@@ -821,16 +822,23 @@
   note          = {Accepted at Information Theory Workshop (ITW); acceptance venue unverified beyond the arXiv comment field (``5 pages, 6 figures, Information Theory Workshop (ITW)''), which does not specify IEEE sponsorship.}
 }
 
-% VERIFY page range against PMLR v202 (digest: 25660--25676).
 @inproceedings{nagler2023statistical_foundations_pfn,
-  title     = {Statistical Foundations of Prior-Data Fitted Networks},
-  author    = {Nagler, Thomas},
-  booktitle = {Proceedings of the 40th International Conference on Machine Learning (ICML)},
-  series    = {PMLR},
-  volume    = {202},
-  year      = {2023},
-  url       = {https://proceedings.mlr.press/v202/nagler23a.html}
+  title = 	 {Statistical Foundations of Prior-Data Fitted Networks},
+  author =       {Nagler, Thomas},
+  booktitle = 	 {Proceedings of the 40th International Conference on Machine Learning},
+  pages = 	 {25660--25676},
+  year = 	 {2023},
+  editor = 	 {Krause, Andreas and Brunskill, Emma and Cho, Kyunghyun and Engelhardt, Barbara and Sabato, Sivan and Scarlett, Jonathan},
+  volume = 	 {202},
+  series = 	 {Proceedings of Machine Learning Research},
+  month = 	 {23--29 Jul},
+  publisher =    {PMLR},
+  pdf = 	 {https://proceedings.mlr.press/v202/nagler23a/nagler23a.pdf},
+  url = 	 {https://proceedings.mlr.press/v202/nagler23a.html},
+  abstract = 	 {Prior-data fitted networks (PFNs) were recently proposed as a new paradigm for machine learning. Instead of training the network to an observed training set, a fixed model is pre-trained offline on small, simulated training sets from a variety of tasks. The pre-trained model is then used to infer class probabilities in-context on fresh training sets with arbitrary size and distribution. Empirically, PFNs achieve state-of-the-art performance on tasks with similar size to the ones used in pre-training. Surprisingly, their accuracy further improves when passed larger data sets during inference. This article establishes a theoretical foundation for PFNs and illuminates the statistical mechanisms governing their behavior. While PFNs are motivated by Bayesian ideas, a purely frequentistic interpretation of PFNs as pre-tuned, but untrained predictors explains their behavior. A predictor’s variance vanishes if its sensitivity to individual training samples does and the bias vanishes only if it is appropriately localized around the test feature. The transformer architecture used in current PFN implementations ensures only the former. These findings shall prove useful for designing architectures with favorable empirical behavior.}
 }
+
+
 
 % arXiv 2023; published in TMLR 2025. Key renamed 2026-07-06 (han2023 -> han2025) to match publication year.
 @article{han2025kernel_regression_icl,
