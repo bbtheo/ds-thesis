@@ -25,6 +25,9 @@ format:
   typst:
     toc: true
     section-numbering: "1.1.1"
+  html:
+    toc: true
+    embed-resources: true
 number-sections: true
 bibliography: thesis-refs.bib
 execute:

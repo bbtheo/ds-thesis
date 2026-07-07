@@ -18,6 +18,7 @@ logs/
 # Generated outputs from Quarto
 data-doc_files/
 thesis.pdf
+thesis.html
 thesis_files/
 
 # R
