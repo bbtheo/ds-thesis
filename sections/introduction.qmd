@@ -124,6 +124,8 @@ All the information the model uses for prediction must fit into its context wind
 
 ## Wasting the context window
 
+- The realtively small context windows is the current weakpoint for FTMs. This is why it might be good not to waste the context on [] 
+
 ## Retrieval-Augmented Prediction
 
 ## Contribution to the literature
