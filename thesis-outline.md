@@ -14,26 +14,34 @@
 
 # Chapter 1. Introduction
 
+> **Ch.1/Ch.2 division of labor (drafting rule):** the introduction gives each technical concept **at most one plain-language sentence + forward reference**; every mechanism, definition, and derivation appears **once, in Ch. 2**. Ch. 1 is organized around the *argument* (problem → idea → contributions → RQs), Ch. 2 around the *concepts* needed for Methods/Discussion. Test: an expert reader can skip Ch. 2 entirely and still follow Ch. 1 → Ch. 4; a novice never sees an intro claim re-justified from scratch in Ch. 2 without the full treatment.
+
 ## 1.1 Fraud detection as an extreme-imbalance learning problem
-- financial fraud = supervised binary classification at 0.1–1.5% prevalence [@he2009learning_imbalanced_data]
-- accuracy is degenerate under skew; learning *and* evaluation must center the minority class [@he2009learning_imbalanced_data]
-- operating-point cost is real: a fixed review budget fixes the tolerable false-positive rate [@leborgne2022fraud_detection_handbook]
+- societal stakes (already drafted in `sections/introduction.qmd`): Finnish police-recorded fraud up sharply since 2010 (StatFin 13ex figure); FFI: EUR 148M attempted / 72.5M realised losses in 2025; EBA/ECB: EUR 4.2bn EEA payment fraud in 2024, +17% YoY [@statfin2026_fraud_offences_13ex; @finanssiala2025_huijaukset_2024; @finanssiala2026_huijaukset_2025; @ebaecb2025_payment_fraud_report]
+- scope narrowing (drafted): first-party vs third-party fraud; thesis = third-party (fraudster- or victim-initiated); adversarial drift (fraudsters adapting to the detector) explicitly out of scope
+- ML framing: supervised binary classification at 0.1–1.5% prevalence — and the EBA-reported real-world rates (0.001–0.033%) mean public datasets are already oversampled by ≥1 order of magnitude [@he2009learning_imbalanced_data; @ebaecb2025_payment_fraud_report]
+- one-sentence assertions only (no argument here): accuracy is uninformative at this skew, and a fixed investigation budget fixes the tolerable false-positive rate → evaluation must center the minority class [@he2009learning_imbalanced_data; @leborgne2022fraud_detection_handbook]
+  - *(defers to §2.2: the full evaluation argument — ROC dilution, PR-AUC primacy, Recall@FPR as the budget metric, and the ranking-vs-calibration canonical statement. He 2009's remedy families defer to §2.1.)*
+- *(planned figure, TODO already in draft: fraud-prevalence bar chart across the 6 formal datasets vs the EBA real-world band)*
 
 ## 1.2 From gradient-boosted trees to tabular foundation models
-- GBDTs are the entrenched tabular baseline [@grinsztajn2022why_tree_based; @chen2016xgboost_scalable_tree_boosting; @dorogush2018catboost]
-- ICL tabular FTMs (TabPFN line, TabICL) classify in one forward pass, no gradient training [@hollmann2025accurate_tabular_foundation_model; @qu2026tabiclv2]
-- the FTM output approximates the Bayesian posterior-predictive over a synthetic prior [@muller2022transformers_bayesian_inference]
+- GBDTs are the entrenched tabular baseline — one sentence on why (robust on heterogeneous features, cheap, tuned-SOTA) [@grinsztajn2022why_tree_based; @chen2016xgboost_scalable_tree_boosting; @dorogush2018catboost]
+- ICL tabular FTMs (TabPFN line, TabICL): pretrained once on synthetic tasks, then classify a *new* table in a single forward pass by conditioning on a context of labeled rows — no gradient training, competitive with tuned GBDTs [@hollmann2025accurate_tabular_foundation_model; @qu2026tabiclv2]
+- the one plain-language consequence the reader must carry: **whatever sits in the context window is the model's entire effective training set for that prediction** — stated without mechanism
+  - *(defers to §2.4–2.5: attention/ICL, the PFN Bayesian posterior-predictive framing — the [@muller2022transformers_bayesian_inference] citation lives THERE, not here — version lineage, context limits)*
 
 ## 1.3 The problem: a fixed context window wasted under imbalance
 - FTMs have a bounded context budget (soft, tied to pretraining-scale row counts) [@hollmann2025accurate_tabular_foundation_model]
-- expected fraud rows in a random context = π·B → a 10k window at 0.17% holds ~17 frauds; many batches hold none [finding: methods §2.6 arithmetic]
-- two deficiencies of the random context: (i) irrelevant rows, (ii) class-imbalanced rows
+- the hook — the π·B arithmetic lives HERE, once (canonical statement): expected fraud rows in a random context = π·B → a 10k window at 0.17% holds ~17 frauds; many subsamples hold none
+- two deficiencies of the random context: (i) irrelevant rows, (ii) class-imbalanced rows — this pair is the C1–C4 design in embryo (each condition toggles one deficiency)
+  - *(defers to §2.6: why flooding is fatal rather than a nuisance — because the context is the effective training set (§2.4). §2.6 back-references this arithmetic instead of restating it.)*
 
 ## 1.4 The idea: Retrieval-Augmented Prediction (the hypothesis under test)
 - RAP = test-time context construction on a **frozen** model, no fine-tuning [@thomas2024localpfn_retrieval_finetuning]
-- two levers: relevance (kNN retrieval around the test region) and class balance (controlled fraud-ratio oversampling)
+- two levers, mapping 1:1 onto §1.3's two deficiencies: relevance (kNN retrieval around the test region) and class balance (controlled fraud-ratio oversampling)
 - HYPOTHESIS (stated, later falsified): a context both relevant and minority-populated sharpens the posterior [@nagler2023statistical_foundations_pfn; @saerens2002adjusting_priors]
   - honesty note: PFN guarantees are tied to the synthetic prior + pretraining-scale contexts → out-of-design benefit is an empirical question [@nagler2023statistical_foundations_pfn]
+  - *(defers to §3.1: the theory that makes the hypothesis plausible — Nagler localization, kernel-regression lens, in-context prior. Here it is one paragraph of claim, not argument.)*
 
 ## 1.5 Contributions (honest framing)
 - **(primary) a clean relevance-vs-ratio decomposition** of test-time context construction (C1→C2→C3→C4) on frozen FTMs at fraud-grade (<1.5%) imbalance, with each lever isolated: C1→C2 (ratio, clean); C1→C3 (relevance) backed by a **ratio-matched 2×2 relevance ablation** that removes the residual ratio drift [finding: results/runs_ablation]
@@ -61,6 +69,7 @@
 - under extreme imbalance, objective/balance matters more than architecture [@sun2025extreme_imbalance_baf]
 
 ## 2.2 Evaluation under imbalance
+- *(division of labor: §1.1 asserts "accuracy is uninformative" in one sentence; the full argument is made HERE, once — do not re-motivate from fraud statistics)*
 - accuracy and ROC-AUC are optimistic at heavy skew (FPR diluted by huge negatives) [@fawcett2006roc_analysis; @saito2015pr_more_informative_imbalanced]
 - PR-AUC / average precision is the right primary metric [@davis2006relationship_pr_roc; @saito2015pr_more_informative_imbalanced]
 - Recall@fixed-FPR matches a fixed review budget [@leborgne2022fraud_detection_handbook; @mcclish1989partial_roc_curve; @jesus2022baf_arxiv]
@@ -87,10 +96,11 @@
 - analyses/extensions: closer look at v2 [@ye2025closer_look_tabpfnv2]; scaling via sketching [@feuer2023scaling_tabpfn]; ensembling as a context choice [@lakshminarayanan2017deep_ensembles]
 - FTMs in finance/anomaly [@olusegun2024ifs_tabpfn_ethereum; @priorlabs_taktile_case_study; @djilani2025robustness_tabular_foundation_models]
 
-## 2.6 The context-window bottleneck under imbalance
+## 2.6 The context-window bottleneck under imbalance (bridge into Ch. 3)
 - fixed budget + attention cost grows with rows [@vaswani2017attention_is_all_you_need]
-- a random context floods the window with the majority class → the minority must be characterized from a handful of rows [finding: methods §2.6]
+- the mechanistic reading of §1.3's arithmetic (**back-reference it, do not restate it**): because the PPD conditions directly on the context (§2.4), a majority-flooded window is not "too little fraud data" — the context is the model's *entire world* for that prediction, so the minority class must be characterized from a handful of rows with no training-time memory to fall back on
 - context is a controllable test-time lever (shown adversarially) [@djilani2025robustness_tabular_foundation_models]
+- → hands off to Ch. 3: if composition determines the prediction, what does the literature propose for choosing it — and what does it predict for imbalance?
 
 ---
 
