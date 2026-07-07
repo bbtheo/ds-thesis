@@ -1,3 +1,7 @@
+---
+bibliography: thesis-refs.bib
+---
+
 # Introduction
 
 ```{r}
@@ -21,17 +25,18 @@ fraud_fi <- read_csv(
   summarise(n = sum(n), .by = c(year, group)) |>
   filter(year >= 1991)
 
-fraud_since_2010 <- fraud_fi |> filter(group=="Means-of-payment fraud (ch. 37)", year %in% c(2010, max(year))) |> pull(n)
-
+fraud_since_2010 <- fraud_fi |> filter(group=="Means-of-payment fraud (ch. 37)", year %in% c(2010, max(year)))
+fraud_prc_rise <- (max(fraud_since_2010$n)-min(fraud_since_2010$n))/min(fraud_since_2010$n)*100
+fraud_prc_rise <- round(fraud_prc_rise,1)
 ```
 
 ## Fraud detection
 
-The scale of the problem is substantial and growing. Police-recorded fraud offences in Finland have risen since 2010 (@fig-fi-fraud-trend). The monetary losses are on similar trajectory. According to Finance Finland, the trade association of the Finnish financial sector, reports that criminals attempted to defraud Finnish bank customers of 148 million Euros in 2025, up `r (((148-76.9)/76.9) |> round(digits = 3))*100` % from 2023. Banks blocked or recovered roughly half of the attempted amount in 2025, leaving 72.5 million Euros as realised losses to customers [@finanssiala2025_huijaukset_2024; @finanssiala2026_huijaukset_2025]. The trend is not just specific to Finland, the joint report of the European Banking Authority (EBA) and the European Central Bank (ECB) puts the total value of fraudulent payment transactions in the European Economic Area at EUR 4.2 billion in 2024, with a 17% year-on-year increase [@ebaecb2025_payment_fraud_report].
+Financial fraud is a substantial and growing problem. Police-recorded means-of-payment fraud offences in Finland have risen by `r fraud_prc_rise` % between 2010 and `r max(fraud_since_2010$year)` (@fig-fi-fraud-trend). The monetary losses follow a similar trajectory. Finance Finland, the trade association of the Finnish financial sector, reports that criminals attempted to defraud Finnish bank customers of EUR 148 million in 2025, up `r (((148-76.9)/76.9) |> round(digits = 3))*100` % from 2023; banks blocked or recovered roughly half of the attempted amount, leaving EUR 72.5 million in realised losses to customers [@finanssiala2025_huijaukset_2024; @finanssiala2026_huijaukset_2025]. Nor is the trend specific to Finland: a joint report by the European Banking Authority (EBA) and the European Central Bank (ECB) puts the total value of fraudulent payment transactions in the European Economic Area at EUR 4.2 billion in 2024, a 17 % year-on-year increase [@ebaecb2025_payment_fraud_report].
 
 ```{r}
 #| label: fig-fi-fraud-trend
-#| fig-cap: "Police-recorded fraud offences in Finland, 1991–2025. Fraud covers fraud, petty fraud and aggravated fraud (Criminal Code ch. 36). Means-of-payment fraud covers its petty and aggravated forms (ch. 37), criminalised as a separate offence category in 1991. Data: Statistics Finland, StatFin table 13ex [@statfin2026_fraud_offences_13ex], CC BY 4.0."
+#| fig-cap: "Police-recorded fraud offences in Finland, 1991-2025. Fraud covers fraud, petty fraud and aggravated fraud (Criminal Code ch. 36). Means-of-payment fraud covers its petty and aggravated forms (ch. 37), criminalised as a separate offence category in 1991. [@statfin2026_fraud_offences_13ex]"
 #| fig-width: 6.2
 #| fig-height: 3.2
 #| warning: false
@@ -54,10 +59,72 @@ ggplot(fraud_fi, aes(year, n, colour = group)) +
   )
 ```
 
-Financial fraud is usually divided into two distinct types. First-party fraud and third-party fraud. In first-party fraud, the customer is the fraudster. In third-party fraud, the fraudster is an outside actor, a third party who is not thought to be a legitimate participant in the original transaction. This thesis concentrates on third-party fraud, and the term fraud will hereafter refer to this type of financial fraud.
+Financial fraud is commonly divided into two distinct types: first-party fraud, in which the customer themselves is the fraudster, and third-party fraud, in which the fraud is committed by an outside actor who is not a legitimate participant in the transaction. This thesis concentrates on third-party fraud, and the term fraud will hereafter refer to this type.
 
-Third-party fraud can be then further divided by who had initiated the payment. The payment is initiated either by the fraudster, as in account takeovers or cases where credit card details are stolen, or by the customer, when the customer is emotionally manipulated or misled into making the payment. These subdivisions make the detection setting harder still as even the customer might not know that they are getting frauded.
+Third-party fraud can be further divided by who initiates the fraudulent payment. It is initiated either by the fraudster, as in account takeovers or payments made with stolen card details, or by the customer, who is emotionally manipulated or misled into authorising the payment themselves. The latter case makes detection harder still, since at the moment of the transaction even the paying customer may not know that they are being defrauded.
 
 <!-- TODO: add EBA fraud taxonomy citation when the document is sent by them. -->
 
-Setting up algorithmic detection of fraudulent transactions faces two primary difficulties. The first is class imbalance: fraudulent transactions are only a small fraction of all transactions, and such severe imbalance affects all machine-learning-based models. The second is the changing modus operandi of fraud. Fraud detection is a two-actor system: fraudsters change their attack patterns as the detection systems learn the old ones. This second difficulty is out of scope for this thesis.
+Algorithmic detection of fraudulent transactions faces two primary difficulties. The first is class imbalance: fraudulent transactions are only a small fraction of all transactions, and such severe imbalance degrades machine-learning-based models regardless of family. The second is the changing modus operandi of fraud. Detection is a two-actor system in which fraudsters abandon attack patterns as the detection systems learn them. This second difficulty is out of scope for this thesis, which concentrates on the first.
+
+```{r}
+#| label: fig-dataset-prevalence
+#| fig-cap: "Fraud prevalence of the datasets used in this thesis. The dashed line marks the 0.033 % share of fraud rates reported for payment transactions in the European Economic Area in 2024 [@ebaecb2025_payment_fraud_report]. Prevalences are computed over each full dataset."
+#| fig-width: 6.2
+#| fig-height: 3.0
+#| warning: false
+#| message: false
+
+# Prevalences extracted from data/duckdb/fraud_datasets.duckdb
+# (full datasets, incl. FiFAR's pre-defined test split).
+prevalence <- read_csv(
+  "data/external/dataset_fraud_prevalence.csv",
+  show_col_types = FALSE
+) |>
+  mutate(
+    fraud_rate = n_fraud / n_rows,
+    dataset_label = reorder(dataset_label, fraud_rate)
+  )
+
+eba_range <- c(0.00001, 0.00033)
+
+ggplot(prevalence, aes(dataset_label, fraud_rate)) +
+  geom_col(fill = "#D97706") +
+  geom_text(
+    aes(label = percent(fraud_rate, accuracy = 0.01)),
+    vjust = -1, size = 3, colour = "grey20"
+  ) +
+  geom_hline(
+    yintercept = eba_range[2],
+    linetype = "dashed",
+    size = 1
+  ) +
+  scale_y_continuous(
+    breaks = c(0, 0.001, 0.01),
+    labels = label_percent(),
+    limits = c(0, 0.02)
+  ) +
+  labs(x = NULL, y = "Share of fraudulent transactions") +
+  theme_minimal(base_size = 10) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+```
+
+The imbalance in openly available research datasets, severe as it is, still understates the production setting. The EBA and ECB report fraud rates between 0.001 % and 0.033 % across payment instrument categories, with card transactions at the top of that range [@ebaecb2025_payment_fraud_report]. The fraud prevalence of the datasets used in this thesis ranges from `r percent(min(prevalence$fraud_rate), accuracy = 0.01)` to `r percent(max(prevalence$fraud_rate), accuracy = 0.1)` (@fig-dataset-prevalence) . This is one to three orders of magnitude higher. In other words, the public benchmark datasets are already heavily oversampled relative to the class distribution a deployed detection system faces.
+
+Under such imbalance, classification accuracy is a meaningless performance measure: a detector that flags nothing is more than 98 % accurate on every dataset in @fig-dataset-prevalence yet catches no fraud. Evaluation must instead concentrate on the minority class [@he2009learning_imbalanced_data]. Moreover, the tension between false positives and the recall of true positives is at the heart of fraud detection: investigating or blocking a transaction is costly and burdens legitimate customers, so it is not feasible to act on every alarm [@leborgne2022fraud_detection_handbook]. A useful detector must therefore catch as much fraud as possible while keeping its false-positive rate within an operationally acceptable budget.
+
+## From trees to tabular foundation models
+
+Gradient-boosted decision trees (GBDTs) have long been the gold standard for tabular classification, consistently outperforming deep-learning approaches on [@grinsztajn2022why_tree_based]. Recently, tabular foundation models (TFMs) have become competitive with tuned GBDTs. A TFM is a neural network pretrained on massive amounts of synthetic tabular data. At prediction time it is not trained on the target task at all. The labelled rows are supplied as context, and the model predicts the labels of unseen rows in a single forward pass by conditioning on that context by a mechanism known as in-context learning [@hollmann2025accurate_tabular_foundation_model; @qu2026tabiclv2].
+
+All the information the model uses for prediction must fit into its context window. When the training data exceeds the context budget, some of it must be left out. When working under heavy class imbalance, the way those limited context slots are filled is a crucial modelling decision. A  naive randomly sampled context may contain hardly any fraud at all.
+
+## Wasting the context window
+
+## Retrieval-Augmented Prediction
+
+## Contribution to the literature
+

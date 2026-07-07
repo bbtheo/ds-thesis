@@ -1,0 +1,7 @@
+dataset,dataset_label,n_rows,n_fraud
+eu_cc,EU CC (ULB),284807,492
+paysim,PaySim,6362620,8213
+banksim,BankSim,594643,7200
+fifar,FiFAR,602961,7133
+baf,BAF,1000000,11029
+cc_2025,CC Fraud 2025,500000,7500
