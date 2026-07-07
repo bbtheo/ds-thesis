@@ -5,8 +5,9 @@ __pycache__/
 *.pyo
 *.egg-info/
 
-# Data (large, not versioned)
-/data/
+# Data (large, not versioned; data/external holds small tracked figure-source data)
+/data/*
+!/data/external/
 
 # Training artifacts
 catboost_info/
