@@ -1,10 +1,60 @@
 # Introduction
 
+```{r}
+#| label: setup
+#| include: false
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(scales)
+
+fraud_fi <- read_csv(
+  "data/external/statfin_fraud_offences_13ex.csv",
+  show_col_types = FALSE,
+  col_names = c("year", "area", "offence", "n"), skip = 1
+) |>
+  mutate(group = if_else(
+    grepl("^111[89]", offence),
+    "Means-of-payment fraud (ch. 37)",
+    "Fraud (ch. 36)"
+  )) |>
+  summarise(n = sum(n), .by = c(year, group)) |>
+  filter(year >= 1991)
+
+fraud_since_2010 <- fraud_fi |> filter(group=="Means-of-payment fraud (ch. 37)", year %in% c(2010, max(year))) |> pull(n)
+
+```
+
 ## Fraud detection
 
-Financial fraud is usually divided into two distinct types. First-party fraud and third-party fraud. In first-party fraud, the customer is the fraudster. In third-party fraud, the fraudster is an outside actor, a third party who is not thought to be a legitimate participant in the original transaction. This thesis concentrates on third-party fraud, and the term fraud will hereafter refer to this type of financial fraud.
+The scale of the problem is substantial and growing. Police-recorded fraud offences in Finland have risen since 2010 (@fig-fi-fraud-trend). The monetary losses are on similar trajectory. According to Finance Finland, the trade association of the Finnish financial sector, reports that criminals attempted to defraud Finnish bank customers of 148 million Euros in 2025, up `r (((148-76.9)/76.9) |> round(digits = 3))*100` % from 2023. Banks blocked or recovered roughly half of the attempted amount in 2025, leaving 72.5 million Euros as realised losses to customers [@finanssiala2025_huijaukset_2024; @finanssiala2026_huijaukset_2025]. The trend is not just specific to Finland, the joint report of the European Banking Authority (EBA) and the European Central Bank (ECB) puts the total value of fraudulent payment transactions in the European Economic Area at EUR 4.2 billion in 2024, with a 17% year-on-year increase [@ebaecb2025_payment_fraud_report].
 
-<!-- TODO: Get a plot of yearly amounts of financial fraud from EBA or Finance finland -->
+```{r}
+#| label: fig-fi-fraud-trend
+#| fig-cap: "Police-recorded fraud offences in Finland, 1991–2025. Fraud covers fraud, petty fraud and aggravated fraud (Criminal Code ch. 36). Means-of-payment fraud covers its petty and aggravated forms (ch. 37), criminalised as a separate offence category in 1991. Data: Statistics Finland, StatFin table 13ex [@statfin2026_fraud_offences_13ex], CC BY 4.0."
+#| fig-width: 6.2
+#| fig-height: 3.2
+#| warning: false
+#| message: false
+
+ggplot(fraud_fi, aes(year, n, colour = group)) +
+  geom_line(linewidth = 1.2) +
+  scale_colour_manual(values = c(
+    "Fraud (ch. 36)" = "#2563EB",
+    "Means-of-payment fraud (ch. 37)" = "#D97706"
+  )) +
+  scale_x_continuous(breaks = seq(1980, 2025, 5)) +
+  scale_y_continuous(labels = label_number(big.mark = ","), limits = c(0, NA)) +
+  labs(x = NULL, y = "Offences known to the authorities", colour = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank()
+  )
+```
+
+Financial fraud is usually divided into two distinct types. First-party fraud and third-party fraud. In first-party fraud, the customer is the fraudster. In third-party fraud, the fraudster is an outside actor, a third party who is not thought to be a legitimate participant in the original transaction. This thesis concentrates on third-party fraud, and the term fraud will hereafter refer to this type of financial fraud.
 
 Third-party fraud can be then further divided by who had initiated the payment. The payment is initiated either by the fraudster, as in account takeovers or cases where credit card details are stolen, or by the customer, when the customer is emotionally manipulated or misled into making the payment. These subdivisions make the detection setting harder still as even the customer might not know that they are getting frauded.
 
