@@ -1,0 +1,13 @@
+# Introduction
+
+## Fraud detection
+
+Financial fraud is usually divided into two distinct types. First-party fraud and third-party fraud. In first-party fraud, the customer is the fraudster. In third-party fraud, the fraudster is an outside actor, a third party who is not thought to be a legitimate participant in the original transaction. This thesis concentrates on third-party fraud, and the term fraud will hereafter refer to this type of financial fraud.
+
+<!-- TODO: Get a plot of yearly amounts of financial fraud from EBA or Finance finland -->
+
+Third-party fraud can be then further divided by who had initiated the payment. The payment is initiated either by the fraudster, as in account takeovers or cases where credit card details are stolen, or by the customer, when the customer is emotionally manipulated or misled into making the payment. These subdivisions make the detection setting harder still as even the customer might not know that they are getting frauded.
+
+<!-- TODO: add EBA fraud taxonomy citation when the document is sent by them. -->
+
+Setting up algorithmic detection of fraudulent transactions faces two primary difficulties. The first is class imbalance: fraudulent transactions are only a small fraction of all transactions, and such severe imbalance affects all machine-learning-based models. The second is the changing modus operandi of fraud. Fraud detection is a two-actor system: fraudsters change their attack patterns as the detection systems learn the old ones. This second difficulty is out of scope for this thesis.
