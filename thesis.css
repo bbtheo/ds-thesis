@@ -1,0 +1,190 @@
+/*
+ * thesis.css: styling for the HTML render of thesis.qmd only.
+ * The Typst PDF output is unaffected.
+ */
+
+:root {
+  --th-accent: #2563eb;       /* matches the blue used in thesis figures */
+  --th-accent-dark: #1d4ed8;
+  --th-accent-soft: #eef4ff;
+  --th-ink: #1f2937;
+  --th-muted: #64748b;
+  --th-rule: #e2e8f0;
+  --th-serif: "Source Serif 4", "Charter", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --th-sans: "Inter", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--th-serif);
+  color: var(--th-ink);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+/* ---------- title block ---------- */
+
+#title-block-header.quarto-title-block {
+  margin-bottom: 3rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--th-rule);
+}
+
+#title-block-header .title {
+  font-family: var(--th-sans);
+  font-weight: 750;
+  font-size: 2.1rem;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: #0f172a;
+}
+
+#title-block-header .subtitle {
+  font-family: var(--th-sans);
+  font-size: 1.15rem;
+  color: var(--th-muted);
+  margin-top: 0.6rem;
+}
+
+.quarto-title-meta-heading {
+  font-family: var(--th-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem !important;
+  color: var(--th-muted);
+}
+
+.quarto-title-meta-contents {
+  font-family: var(--th-sans);
+  font-size: 0.9rem;
+}
+
+/* abstract in the title block */
+div.abstract {
+  background: var(--th-accent-soft);
+  border-left: 4px solid var(--th-accent);
+  border-radius: 0 6px 6px 0;
+  padding: 1rem 1.25rem;
+  margin-top: 1.5rem;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+div.abstract .abstract-title {
+  font-family: var(--th-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--th-accent-dark);
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- headings ---------- */
+
+h1, h2, h3, h4, h5 {
+  font-family: var(--th-sans);
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+#quarto-document-content h1 {
+  font-size: 1.8rem;
+  font-weight: 750;
+  margin-top: 3.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 3px solid var(--th-accent);
+}
+
+#quarto-document-content h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-top: 2.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--th-rule);
+}
+
+#quarto-document-content h3 {
+  font-size: 1.12rem;
+  font-weight: 700;
+  margin-top: 2rem;
+}
+
+.header-section-number {
+  color: var(--th-accent);
+  font-weight: 800;
+  margin-right: 0.25rem;
+}
+
+/* ---------- links, cross-references, citations ---------- */
+
+#quarto-document-content a {
+  color: var(--th-accent-dark);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* dotted underline hints that these pop up a preview on hover */
+#quarto-document-content a.quarto-xref,
+#quarto-document-content .citation a {
+  text-decoration: none;
+  border-bottom: 1px dotted var(--th-accent);
+}
+
+#quarto-document-content a.quarto-xref:hover,
+#quarto-document-content .citation a:hover {
+  background: var(--th-accent-soft);
+  border-bottom-style: solid;
+}
+
+/* the hover-preview popup itself */
+.tippy-box[data-theme~="quarto"] {
+  border: 1px solid var(--th-rule);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+}
+
+/* ---------- figures ---------- */
+
+.quarto-figure {
+  margin: 2.25rem 0;
+}
+
+.quarto-figure figcaption {
+  font-family: var(--th-sans);
+  font-size: 0.85rem;
+  color: var(--th-muted);
+  line-height: 1.5;
+  margin-top: 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--th-rule);
+  text-align: left;
+}
+
+/* ---------- table of contents ---------- */
+
+nav[role="doc-toc"] {
+  font-family: var(--th-sans);
+}
+
+nav[role="doc-toc"] > h2#toc-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--th-muted);
+}
+
+nav[role="doc-toc"] a.active {
+  color: var(--th-accent-dark) !important;
+  font-weight: 600;
+}
+
+/* ---------- references ---------- */
+
+#refs {
+  font-size: 0.95rem;
+}
+
+#refs div.csl-entry {
+  margin-bottom: 0.6rem;
+}

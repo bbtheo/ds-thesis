@@ -1,0 +1,20 @@
+title: UH Data Science MSc Thesis
+author: University of Helsinki
+version: 1.0.0
+contributes:
+  formats:
+    typst:
+      template-partials:
+        - typst-template.typ
+        - typst-show.typ
+      format-resources:
+        - UH-logo.png
+      # Custom variables passed to Typst template
+      twoside: true
+      thesis-lang: "en"
+      keywords: []
+      classification: ""
+      depositeplace: ""
+      additionalinformation: ""
+      abstract: ""
+      quoting: ""

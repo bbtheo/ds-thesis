@@ -1,8 +1,26 @@
 ---
 title: "Retrieval-Augmented Prediction for Tabular Foundation Models under Heavy Class Imbalance"
 subtitle: "Test-time context construction for in-context-learning fraud detection"
-author: "Theo"
+author: "Theo Blauberg"
 date: today
+date-format: "MMMM YYYY"
+thesis-lang: "en"
+twoside: false # set to true for the final two-sided submission
+# supervisors:
+#   - "Professor X"
+# examiners:
+#   - "Professor A"
+#   - "Dr. B"
+keywords:
+  - tabular foundation models
+  - in-context learning
+  - class imbalance
+  - fraud detection
+  - retrieval-augmented prediction
+classification: |
+  Computing methodologies → Machine learning → Learning paradigms → Supervised learning\
+  Applied computing → Electronic commerce → Secure online transactions
+depositeplace: "HELDA - Digital Repository of the University of Helsinki"
 abstract: |
   Financial fraud detection is an extreme imbalanced-learning problem: fraudulent
   records form a tiny fraction of all activity, yet the cost of missing them is high.
@@ -22,12 +40,19 @@ abstract: |
   decompose RAP's benefit into a relevance component (retrieval) and a ratio component
   (oversampling).
 format:
-  typst:
-    toc: true
-    section-numbering: "1.1.1"
+  uh-ds-msc-typst:
+    output-file: thesis.pdf
   html:
     toc: true
+    toc-depth: 3
+    css: thesis.css
+    csl: apa.csl
     embed-resources: true
+    crossrefs-hover: true
+    citations-hover: true
+    footnotes-hover: true
+    smooth-scroll: true
+    link-external-newwindow: true
 number-sections: true
 bibliography: thesis-refs.bib
 execute:
@@ -37,7 +62,9 @@ execute:
 
 {{< include sections/introduction.qmd >}}
 
+:::: {.content-visible when-format="html"}
 # References {.unnumbered}
 
 ::: {#refs}
 :::
+::::
