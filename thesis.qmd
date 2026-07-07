@@ -43,6 +43,10 @@ format:
   uh-ds-msc-typst:
     output-file: thesis.pdf
   html:
+    format-links:
+      - format: uh-ds-msc-typst
+        text: PDF
+        icon: file-pdf
     toc: true
     toc-depth: 3
     css: thesis.css
