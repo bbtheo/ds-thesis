@@ -116,7 +116,7 @@ The imbalance in openly available research datasets, severe as it is, still unde
 
 Under such imbalance, classification accuracy is a meaningless performance measure: a detector that flags nothing is more than 98 % accurate on every dataset in @fig-dataset-prevalence yet catches no fraud. Evaluation must instead concentrate on the minority class [@he2009learning_imbalanced_data]. Moreover, the tension between false positives and the recall of true positives is at the heart of fraud detection: investigating or blocking a transaction is costly and burdens legitimate customers, so it is not feasible to act on every alarm [@leborgne2022fraud_detection_handbook]. A useful detector must therefore catch as much fraud as possible while keeping its false-positive rate within an operationally acceptable budget.
 
-## From trees to tabular foundation models
+## From trees to tabular foundation models {#sec-intro-tfm}
 
 Gradient-boosted decision trees (GBDTs) have long been the gold standard for tabular classification, consistently outperforming deep-learning approaches on tabular data [@grinsztajn2022why_tree_based]. Recently, tabular foundation models (TFMs) have become competitive with tuned GBDTs. A TFM is a neural network pretrained on massive amounts of synthetic tabular data. At prediction time it is not trained on the target task at all. The labelled rows are supplied as context, and the model predicts the labels of unseen rows in a single forward pass by conditioning on that context by a mechanism known as in-context learning [@hollmann2025accurate_tabular_foundation_model; @qu2026tabiclv2].
 
