@@ -30,7 +30,7 @@ fraud_prc_rise <- (max(fraud_since_2010$n)-min(fraud_since_2010$n))/min(fraud_si
 fraud_prc_rise <- round(fraud_prc_rise,1)
 ```
 
-## Fraud detection
+## Fraud detection {#sec-intro-fraud}
 
 Financial fraud is a substantial and growing problem. Police-recorded means-of-payment fraud offences in Finland have risen by `r fraud_prc_rise` % between 2010 and `r max(fraud_since_2010$year)` (@fig-fi-fraud-trend). The monetary losses follow a similar trajectory. Finance Finland, the trade association of the Finnish financial sector, reports that criminals attempted to defraud Finnish bank customers of EUR 148 million in 2025, up `r (((148-76.9)/76.9) |> round(digits = 3))*100` % from 2023; banks blocked or recovered roughly half of the attempted amount, leaving EUR 72.5 million in realised losses to customers [@finanssiala2025_huijaukset_2024; @finanssiala2026_huijaukset_2025]. Nor is the trend specific to Finland: a joint report by the European Banking Authority (EBA) and the European Central Bank (ECB) puts the total value of fraudulent payment transactions in the European Economic Area at EUR 4.2 billion in 2024, a 17 % year-on-year increase [@ebaecb2025_payment_fraud_report].
 
