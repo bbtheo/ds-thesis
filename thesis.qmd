@@ -22,23 +22,7 @@ classification: |
   Applied computing → Electronic commerce → Secure online transactions
 depositeplace: "HELDA - Digital Repository of the University of Helsinki"
 abstract: |
-  Financial fraud detection is an extreme imbalanced-learning problem: fraudulent
-  records form a tiny fraction of all activity, yet the cost of missing them is high.
-  Tabular foundation models (FTMs) such as the TabPFN family and TabICLv2 have recently
-  matched or surpassed gradient-boosted decision trees on tabular classification through
-  in-context learning, predicting by conditioning on a training context at inference time
-  rather than by training a model per dataset. These models, however, have a fixed and
-  modest context window, and under heavy class imbalance the standard practice of filling
-  it by uniform random subsampling wastes almost the entire window on redundant legitimate
-  records while admitting only a handful of fraud examples. This thesis proposes
-  Retrieval-Augmented Prediction (RAP), a test-time context-construction strategy that, for
-  each batch of records to be scored, retrieves a structurally similar context by
-  k-nearest-neighbour search and rebalances it to a controlled fraud ratio by oversampling.
-  RAP operates entirely at inference on a frozen model and requires no retraining. We
-  evaluate five FTMs and two gradient-boosted baselines on six public fraud-detection
-  datasets, using prevalence-corrected PR-AUC and recall at fixed false-positive rates, and
-  decompose RAP's benefit into a relevance component (retrieval) and a ratio component
-  (oversampling).
+  Financial fraud detection is an extreme imbalanced-learning problem: fraudulent records form a tiny fraction of all activity, yet the cost of missing them is high.Tabular foundation models (FTMs) such as the TabPFN family and TabICLv2 have recently matched or surpassed gradient-boosted decision trees on tabular classification through in-context learning, predicting by conditioning on a training context at inference time rather than by training a model per dataset. These models, however, have a fixed and modest context window, and under heavy class imbalance the standard practice of filling  it by uniform random subsampling wastes almost the entire window on redundant legitimate records while admitting only a handful of fraud examples. This thesis proposes Retrieval-Augmented Prediction (RAP), a test-time context-construction strategy that, for each batch of records to be scored, retrieves a structurally similar context by k-nearest-neighbour search and rebalances it to a controlled fraud ratio by oversampling.RAP operates entirely at inference on a frozen model and requires no retraining. We evaluate five FTMs and two gradient-boosted baselines on six public fraud-detection datasets, using prevalence-corrected PR-AUC and recall at fixed false-positive rates, and decompose RAP's benefit into a relevance component (retrieval) and a ratio component (oversampling).
 format:
   uh-ds-msc-typst:
     output-file: thesis.pdf
@@ -65,7 +49,9 @@ execute:
 ---
 
 
-{{< include sections/introduction.qmd >}}
+{{< include sections/1_introduction.qmd >}}
+
+{{< include sections/2_background.qmd >}}
 
 :::: {.content-visible when-format="html"}
 # References {.unnumbered}
