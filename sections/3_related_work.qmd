@@ -1,0 +1,20 @@
+---
+bibliography: thesis-refs.bib
+---
+
+# Related work
+
+@sec-bg-bottleneck closed with the observation that the composition of the context determines the prediction, and asked how the context should be composed. This chapter reviews what the literature proposes. It first covers the theoretical argument for localising the context, then the empirical work on scaling and selecting contexts, then the work on class balance inside the context. It ends with the study of closest lliterature. The failure modes that the literature predicts for retrieval under imbalance, and last a taxonomy that positions the methods of this thesis and how it extendeds the literature of con.
+
+## Why context composition determines the prediction {#sec-rw-theory}
+
+The theoretical case for retrieval starts from the statistical analysis of prior-data fitted networks by @nagler2023statistical_foundations_pfn. In that analysis the variance of the PFN approximation vanishes through pretraining, but its bias vanishes only if the context localises around the test point. As a remedy, Nagler proposes a simple post-hoc restriction of the context to the k nearest neighbours of the test point, under the name localised PFNs. The retrieval mechanism evaluated in this thesis is this method. The how far fraud data sits from that prior is unknown, so the practical value of localisation is an empirical question.
+
+Anyhow, the label frequencies of the context act as an effective class prior. The posterior the model reports scales with the ratio between the in-context prior and the test-time prior [@saerens2002adjusting_priors]. Relevance and class balance are thus the two levers the theory exposes, matching the two deficiencies identified in @sec-context-waste.
+
+## The TabPFN lineage and the scaling of context {#sec-rw-scaling}
+
+One line of work treats the context limit as a capacity problem. Accuracy keeps rising when the context is extended past the 10,000-row pretraining limit, and TabPFN v2.5 was trained to accept contexts of roughly 50,000 rows [@grinsztajn2025tabpfn25_arxiv]. Within a fixed budget, @feuer2023scaling_tabpfn compared random sketching of the context against informed selection such as k-means and CoreSet, and found random selection to match informed selection in all but one case, up to the largest tested context of 3,000 rows.
+
+Scaling alone does not answer the imbalance problem. By the simple arithmetic of @sec-context-waste, even a 50,000-row random window holds only a few dozen fraud rows at fraud-grade prevalence. The question is then not only how many rows fit, but which rows should be chosen. That is the question the rest of this chapter and this thesis is concerned.
+
