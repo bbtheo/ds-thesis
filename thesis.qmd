@@ -53,9 +53,17 @@ execute:
 
 {{< include sections/2_background.qmd >}}
 
+{{< include sections/3_related_work.qmd >}}
+
+{{< include sections/4_data.qmd >}}
+
 :::: {.content-visible when-format="html"}
 # References {.unnumbered}
 
 ::: {#refs}
 :::
 ::::
+
+---
+bibliography: thesis-refs.bib
+---
