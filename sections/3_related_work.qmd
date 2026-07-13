@@ -1,8 +1,8 @@
 ---
-bibliography: thesis-refs.bib
+bibliography: ../thesis-refs.bib
 ---
 
-# Related work
+# Related work {#sec-related-work}
 
 @sec-bg-bottleneck closed with the observation that the composition of the context determines the prediction, and asked how the context should be composed. This chapter reviews what the literature proposes. It first covers the theoretical argument for localising the context, then the empirical work on scaling and selecting contexts, then the work on class balance inside the context. It ends with the study of closest lliterature. The failure modes that the literature predicts for retrieval under imbalance, and last a taxonomy that positions the methods of this thesis and how it extendeds the literature of con.
 
@@ -17,4 +17,44 @@ Anyhow, the label frequencies of the context act as an effective class prior. Th
 One line of work treats the context limit as a capacity problem. Accuracy keeps rising when the context is extended past the 10,000-row pretraining limit, and TabPFN v2.5 was trained to accept contexts of roughly 50,000 rows [@grinsztajn2025tabpfn25_arxiv]. Within a fixed budget, @feuer2023scaling_tabpfn compared random sketching of the context against informed selection such as k-means and CoreSet, and found random selection to match informed selection in all but one case, up to the largest tested context of 3,000 rows.
 
 Scaling alone does not answer the imbalance problem. By the simple arithmetic of @sec-context-waste, even a 50,000-row random window holds only a few dozen fraud rows at fraud-grade prevalence. The question is then not only how many rows fit, but which rows should be chosen. That is the question the rest of this chapter and this thesis is concerned.
+
+## Retrieval and context selection for in-context learning {#sec-rw-retrieval}
+
+Retrieval-based context selection has a clear precedent on tabular data. LoCalPFN persented by @thomas2024localpfn_retrieval_finetuning retrieves a local neighbourhood for each test point and fine-tunes TabPFN on it, but its ablation without fine-tuning, plain frozen kNN retrieval, already improves on the vanilla model across general tabular benchmarks (interquartile-mean AUC 0.943 against 0.917, with fine-tuning lifting it further to 0.958) [@thomas2024localpfn_retrieval_finetuning]. TabDPT builds retrieval into pretraining itself [@ma2024tabdpt], and TabR adds a neighbour-attention component to a conventional deep tabular model [@gorishniy2024tabr_nearest_neighbors]. In a study of TabPFN v2 capabilities by @ye2025closer_look_tabpfnv2, constructing contexts from feature and instance subsets, including k-means prototypes, lets the model scale to oversized datasets and can beat the vanilla model in that regime [@ye2025closer_look_tabpfnv2]. That study concerns scaling and does not test kNN retrieval around test points, but its findings support the same conclusion that the composition of the context matters, not only its size.
+
+The LLM ICL literature point into the direction. Selecting demonstrations by similarity to the query improves few-shot performance [@liu2022good_in_context_examples], and the selection can itself be learned [@rubin2022learning_to_retrieve_prompts]. <!-- Todo: add mention also toRAG? --> LLM prompts are additionally sensitive to demonstration order [@lu2022fantastically_ordered_prompts; @zhao2021calibrate_before_use], a pathology tabular foundation models avoid architecturally through permutation invariance.
+
+The research gap that this thesis tries to anser is a transfer gap, not an completely unexplored niche. Frozen kNN retrieval is shown to help on general, broadly balanced tabular benchmarks. It has not been tested under fraud-level extreme class imbalances before now.
+
+## Class balance and ratio control in the context {#sec-rw-balance}
+
+The class balancing lever has its own literature. The closest prior result to the positive findings of this thesis is @tanna2026data_presentation_resampling, who show that a balanced, resampled context lifts AUC and Matthews correlation for tabular foundation models on imbalanced credit data, summarised as data presentation mattering over architecture. IM-Context selects context by inverse density for imbalanced regression [@nejjar2024im_context]. AWARE couples retrieval with imbalance awareness on high-dimensional clinical records and finds that the gains of imbalance-aware retrieval grow with imbalance. These results are only present with a learned retriever, naive distance-based retrieval can degrade performance. [@pham2026aware] 
+
+## The direct competitor and the adverse priors {#sec-rw-competitor}
+
+The closest competing study is @mcdowell2026correcting_imbalance_pfn. It explores the same inference-time design space, correcting class imbalance for TabPFN v2.5 by manipulating what happens around a frozen model, and concludes that post-hoc thresholding and downsampling win while oversampling the context hurts, attributing the harm to a spiky posterior. The setting differs from this thesis in three major ways. It includes no relevance or retrieval axis, it evaluates threshold-dependent metrics (balanced and worst-class accuracy on a balanced test set), and its imbalance is milder, with minority priors of 5 % and above. Two of its findings deserve emphasis. Its downsampling-to-balance arm is mechanically the same intervention as the stratified balancing condition of this thesis, so that half of the study corroborates the direction of our positive result, though not the operating point, to which the results chapter returns. As stated in @sec-bg-eval, the threshold-dependent evaluation is also exactly what the ranking-metric invariance argument speaks to. DistPFN approaches the same in-context class-prior term analytically: it removes the prior the context imposes by downweighting it post hoc, where the method of this thesis imposes a chosen prior in-context [@lee2026distpfn_label_shift_tabpfn]. The two act on the same quantity in opposite directions.
+
+Two published results stand as adverse priors for this thesis. First, random context selection is a strong baseline: informed sketching failed to beat it for TabPFN in all but one tested case [@feuer2023scaling_tabpfn]. Second, post-hoc prior correction is a monotone rescale and cannot move ranking metrics, so any real balancing gain must be genuine discrimination, as elaborated in @sec-bg-eval [@saerens2002adjusting_priors; @vandengoorbergh2022harm_imbalance_corrections]. Whether these priors hold for frozen tabular foundation models at extreme imbalance is an open question for the experiments to answer.
+
+## Why retrieval can fail under imbalance {#sec-rw-failure}
+
+The literature also predicts Multiple ways how retrieval can fail when the minority class is extremely rare. Firstly, the relevant  neighbourhood is still majority-dominated. If the prediction behaves like a similarity-weighted vote over the context, a retrieved neighbourhood at natural prevalence collapses toward a legitimate verdict [@pham2026aware]. Secondly, retrieved neighbourhoods can be degenerate. A neighbourhood can contain a single class, and in high-dimensional data minority points can become bad hubs that appear in disproportionately many neighbour lists. The published hubness evidence comes from image data, so its application to tabular fraud is an out-of-domain analogy rather than an established mechanism [@tomasev2013minority_hubs]. Thirdly, oversampling by duplication shifts the in-context prior without adding information, which is consistent with the spiky-posterior account of oversampling harm [@mcdowell2026correcting_imbalance_pfn]. These precautionary examples inform the design of the experimental conditions and reappear in the discussion of the results. <!-- TODO: add a link to the result section.-->
+
+## A taxonomy of test-time context construction methods {#sec-rw-taxonomy}
+
+The previously reviewed methods can be organised along five orthogonal axes of test-time context construction: relevance (random or kNN selection), balance (natural or tuned class ratio), granularity (one global context or a context per group of test points), replacement (unique rows or sampling with replacement) and selection mode (mixed or class-conditional retrieval). The experiments of this thesis compare four conditions along these axes, defined fully in the methods chapter: a random context (C1), a balanced random context (C2), a retrieved context (C3) and the full RAP configuration (C4). <!-- TODO: add a crossref to the methods chapter once it exists --> @tbl-rw-taxonomy collects the conditions and the reviewed methods together to a legitable table.
+
+| Method | Relevance | Balance | Granularity | Replacement | Selection mode |
+|:---|---|---|---|---|---|
+| C1 (this thesis) | random | natural | global | unique | mixed |
+| C2 (this thesis) | random | tuned | global | unique | mixed |
+| C3 (this thesis) | kNN | natural | per-group | unique | mixed |
+| C4 / RAP (this thesis) | kNN | tuned | per-group | with replacement | class-conditional |
+| [[LoCalPFN](#ref-thomas2024localpfn_retrieval_finetuning), [TabDPT](#ref-ma2024tabdpt)]{.content-visible when-format="html"}[LoCalPFN [-@thomas2024localpfn_retrieval_finetuning], TabDPT [-@ma2024tabdpt]]{.content-visible unless-format="html"} | kNN | natural | per-query | unique | mixed |
+| [[AWARE](#ref-pham2026aware)]{.content-visible when-format="html"}[AWARE [-@pham2026aware]]{.content-visible unless-format="html"} | learned | imbalance-aware | per-query | unique | mixed |
+| [[IM-Context](#ref-nejjar2024im_context)]{.content-visible when-format="html"}[IM-Context [-@nejjar2024im_context]]{.content-visible unless-format="html"} | density-based | inverse-density | per-query | unique | mixed |
+| @mcdowell2026correcting_imbalance_pfn | random | post-hoc threshold | global | unique | mixed |
+| [[DistPFN](#ref-lee2026distpfn_label_shift_tabpfn)]{.content-visible when-format="html"}[DistPFN [-@lee2026distpfn_label_shift_tabpfn]]{.content-visible unless-format="html"} | random | post-hoc analytic | global | unique | mixed |
+
+: Test-time context construction methods positioned along the five taxonomy axes. Method names link to the corresponding references. LoCalPFN and TabDPT additionally fine-tune the model, and LoCalPFN's frozen retrieval-only arm is the published precedent closest to C3. {#tbl-rw-taxonomy}
 
