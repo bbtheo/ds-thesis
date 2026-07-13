@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  RAP pipeline schematic (hand-authored, layer-grouped for editing in Inkscape).
+  Palette: legit #2563EB (circles), fraud #D97706 (triangles),
+           group 1 #0D9488, group 2 #7C3AED (squares = test rows),
+           unlabelled test rows #D1D5DB, ink #333333 / #555555.
+  Panels: 1 training pool | 2 cluster test set | 3 retrieve per group | 4 forward passes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 900" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#555555"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#D97706"/>
+    </marker>
+    <g id="fraud-mark">
+      <path d="M 0,-5.5 L 5,4 L -5,4 Z" fill="#D97706"/>
+    </g>
+  </defs>
+
+  <rect x="0" y="0" width="1120" height="900" fill="#ffffff"/>
+
+  <!-- ======================= panel 1: training pool ======================= -->
+  <g id="panel-1">
+    <text x="20" y="34" font-size="17" font-weight="bold" fill="#333333">1&#8201;&#8201;The labelled training pool</text>
+    <rect x="20" y="48" width="320" height="260" fill="#FCFCFB" stroke="#DDDDDD"/>
+    <g id="p1-legit" fill="#2563EB">
+      <circle cx="90" cy="160" r="4"/><circle cx="105" cy="130" r="4"/><circle cx="118" cy="185" r="4"/>
+      <circle cx="126" cy="148" r="4"/><circle cx="140" cy="170" r="4"/><circle cx="148" cy="202" r="4"/>
+      <circle cx="155" cy="120" r="4"/><circle cx="160" cy="155" r="4"/><circle cx="172" cy="185" r="4"/>
+      <circle cx="180" cy="140" r="4"/><circle cx="185" cy="215" r="4"/><circle cx="195" cy="170" r="4"/>
+      <circle cx="200" cy="120" r="4"/><circle cx="210" cy="195" r="4"/><circle cx="218" cy="152" r="4"/>
+      <circle cx="225" cy="225" r="4"/><circle cx="232" cy="175" r="4"/><circle cx="240" cy="135" r="4"/>
+      <circle cx="248" cy="205" r="4"/><circle cx="255" cy="165" r="4"/><circle cx="262" cy="120" r="4"/>
+      <circle cx="270" cy="185" r="4"/><circle cx="278" cy="150" r="4"/><circle cx="150" cy="235" r="4"/>
+      <circle cx="170" cy="245" r="4"/><circle cx="195" cy="240" r="4"/><circle cx="220" cy="242" r="4"/>
+      <circle cx="120" cy="220" r="4"/><circle cx="100" cy="195" r="4"/><circle cx="240" cy="230" r="4"/>
+      <circle cx="260" cy="220" r="4"/><circle cx="285" cy="195" r="4"/><circle cx="290" cy="165" r="4"/>
+      <circle cx="75" cy="175" r="4"/><circle cx="85" cy="140" r="4"/><circle cx="110" cy="110" r="4"/>
+      <circle cx="140" cy="100" r="4"/><circle cx="180" cy="100" r="4"/><circle cx="220" cy="105" r="4"/>
+      <circle cx="255" cy="100" r="4"/><circle cx="283" cy="130" r="4"/>
+    </g>
+    <g id="p1-fraud">
+      <use href="#fraud-mark" x="155" y="185"/>
+      <use href="#fraud-mark" x="205" y="160"/>
+      <use href="#fraud-mark" x="245" y="185"/>
+      <use href="#fraud-mark" x="130" y="155"/>
+      <use href="#fraud-mark" x="265" y="145"/>
+    </g>
+    <g id="p1-labels" font-size="13.5" fill="#555555">
+      <text x="34" y="80">legitimate</text>
+      <line x1="97" y1="86" x2="107" y2="106" stroke="#555555" stroke-width="1"/>
+      <text x="255" y="272">fraud</text>
+      <line x1="268" y1="260" x2="248" y2="194" stroke="#555555" stroke-width="1"/>
+    </g>
+  </g>
+
+  <line x1="348" y1="178" x2="392" y2="178" stroke="#555555" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- ======================= panel 2: cluster the test set ======================= -->
+  <g id="panel-2">
+    <text x="400" y="34" font-size="17" font-weight="bold" fill="#333333">2&#8201;&#8201;Cluster the test set</text>
+    <rect x="400" y="48" width="320" height="260" fill="#FCFCFB" stroke="#DDDDDD"/>
+    <ellipse cx="502" cy="166" rx="74" ry="64" fill="none" stroke="#0D9488" stroke-dasharray="4 3"/>
+    <g id="p2-group1" fill="#0D9488">
+      <rect x="452" y="127" width="8" height="8"/><rect x="467" y="152" width="8" height="8"/>
+      <rect x="479" y="117" width="8" height="8"/><rect x="487" y="172" width="8" height="8"/>
+      <rect x="497" y="137" width="8" height="8"/><rect x="509" y="162" width="8" height="8"/>
+      <rect x="517" y="122" width="8" height="8"/><rect x="525" y="182" width="8" height="8"/>
+      <rect x="535" y="147" width="8" height="8"/><rect x="542" y="167" width="8" height="8"/>
+      <rect x="457" y="182" width="8" height="8"/><rect x="472" y="197" width="8" height="8"/>
+      <rect x="492" y="202" width="8" height="8"/><rect x="512" y="199" width="8" height="8"/>
+      <rect x="529" y="209" width="8" height="8"/><rect x="545" y="132" width="8" height="8"/>
+      <rect x="502" y="112" width="8" height="8"/><rect x="459" y="162" width="8" height="8"/>
+    </g>
+    <text x="502" y="172" font-size="17" font-weight="bold" fill="#333333" text-anchor="middle">&#215;</text>
+    <text x="452" y="252" font-size="13.5" fill="#0D9488" font-weight="bold">group 1 (popular)</text>
+    <g id="p2-centre-label" font-size="13.5" fill="#555555">
+      <text x="560" y="86">group centre</text>
+      <line x1="572" y1="92" x2="510" y2="160" stroke="#555555" stroke-width="1"/>
+    </g>
+    <ellipse cx="641" cy="211" rx="44" ry="36" fill="none" stroke="#7C3AED" stroke-dasharray="4 3"/>
+    <g id="p2-group2" fill="#7C3AED">
+      <rect x="617" y="192" width="8" height="8"/><rect x="632" y="207" width="8" height="8"/>
+      <rect x="645" y="195" width="8" height="8"/><rect x="625" y="222" width="8" height="8"/>
+      <rect x="642" y="222" width="8" height="8"/><rect x="657" y="209" width="8" height="8"/>
+    </g>
+    <text x="641" y="217" font-size="17" font-weight="bold" fill="#333333" text-anchor="middle">&#215;</text>
+    <text x="618" y="272" font-size="13.5" fill="#7C3AED" font-weight="bold">group 2</text>
+    <text x="410" y="330" font-size="13.5" fill="#555555">G groups chosen automatically</text>
+  </g>
+
+  <line x1="728" y1="178" x2="772" y2="178" stroke="#555555" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- ======================= panel 3: retrieve per group ======================= -->
+  <g id="panel-3">
+    <text x="780" y="34" font-size="17" font-weight="bold" fill="#333333">3&#8201;&#8201;Retrieve a context per group</text>
+    <rect x="780" y="48" width="320" height="260" fill="#FCFCFB" stroke="#DDDDDD"/>
+    <!-- train pool, faint; retrieved rows recoloured -->
+    <g id="p3-pool" fill="#C9CFDA">
+      <circle cx="850" cy="160" r="4"/><circle cx="865" cy="130" r="4"/><circle cx="915" cy="120" r="4"/>
+      <circle cx="960" cy="120" r="4"/><circle cx="1000" cy="135" r="4"/><circle cx="1008" cy="205" r="4"/>
+      <circle cx="1015" cy="165" r="4"/><circle cx="870" cy="220" r="4"/><circle cx="895" cy="235" r="4"/>
+      <circle cx="925" cy="242" r="4"/><circle cx="955" cy="238" r="4"/><circle cx="985" cy="220" r="4"/>
+      <circle cx="838" cy="185" r="4"/><circle cx="845" cy="215" r="4"/><circle cx="890" cy="100" r="4"/>
+      <circle cx="1035" cy="185" r="4"/><circle cx="1030" cy="140" r="4"/><circle cx="820" cy="145" r="4"/>
+    </g>
+    <circle id="p3-neighbourhood" cx="930" cy="180" r="66" fill="none" stroke="#0D9488" stroke-width="1.6" stroke-dasharray="5 4"/>
+    <g id="p3-retrieved-legit" fill="#2563EB">
+      <circle cx="880" cy="185" r="4"/><circle cx="890" cy="148" r="4"/><circle cx="900" cy="170" r="4"/>
+      <circle cx="908" cy="202" r="4"/><circle cx="920" cy="155" r="4"/><circle cx="932" cy="185" r="4"/>
+      <circle cx="940" cy="140" r="4"/><circle cx="945" cy="215" r="4"/><circle cx="955" cy="170" r="4"/>
+      <circle cx="970" cy="195" r="4"/><circle cx="978" cy="152" r="4"/>
+    </g>
+    <text x="930" y="186" font-size="17" font-weight="bold" fill="#333333" text-anchor="middle">&#215;</text>
+    <!-- retrieved fraud, incl. a duplicated stack -->
+    <g id="p3-retrieved-fraud">
+      <use href="#fraud-mark" x="912" y="175"/>
+      <use href="#fraud-mark" x="952" y="196"/>
+      <use href="#fraud-mark" x="934" y="161"/>
+      <use href="#fraud-mark" x="939" y="165"/>
+      <use href="#fraud-mark" x="944" y="161"/>
+      <text x="1014" y="124" font-size="13" fill="#D97706" font-weight="bold">duplicated</text>
+      <line x1="1012" y1="128" x2="950" y2="156" stroke="#D97706" stroke-width="1"/>
+    </g>
+    <!-- fraud pulled in from the whole pool, outside the neighbourhood -->
+    <g id="p3-fraud-topup">
+      <use href="#fraud-mark" x="856" y="108"/>
+      <use href="#fraud-mark" x="1042" y="248"/>
+      <path d="M 862,114 Q 890,140 908,162" fill="none" stroke="#D97706" stroke-width="1.4" stroke-dasharray="3 3" marker-end="url(#arrow-orange)"/>
+      <path d="M 1036,242 Q 1000,224 964,204" fill="none" stroke="#D97706" stroke-width="1.4" stroke-dasharray="3 3" marker-end="url(#arrow-orange)"/>
+      <text x="792" y="86" font-size="13" fill="#D97706">fraud fetched from</text>
+      <text x="792" y="102" font-size="13" fill="#D97706">the whole pool</text>
+    </g>
+    <g id="p3-circle-label" font-size="13.5" fill="#555555">
+      <text x="930" y="272" text-anchor="middle">nearest train rows</text>
+      <text x="930" y="288" text-anchor="middle">around the group centre</text>
+    </g>
+  </g>
+
+  <!-- down arrow into panel 4 -->
+  <line x1="560" y1="342" x2="560" y2="372" stroke="#555555" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <!-- ======================= panel 4: forward passes ======================= -->
+  <!-- One stacked block per pass: context rows (labelled, solid) with the chunk's
+       test rows (unlabelled, grey) directly beneath. The group-coloured outline
+       shows which context is reused. After the frozen TFM the same test rows
+       reappear with dashed outlines coloured by predicted class, and all
+       predicted rows collect into the predicted test set. -->
+  <g id="panel-4">
+    <text x="20" y="398" font-size="17" font-weight="bold" fill="#333333">4&#8201;&#8201;Test-set label prediction</text>
+
+    <!-- lane 1: group 1, chunk 1 -->
+    <g id="p4-lane1">
+      <rect x="40" y="414" width="260" height="142" fill="#FCFCFB" stroke="#0D9488" rx="4"/>
+      <text x="52" y="434" font-size="13.5" font-weight="bold" fill="#333333">group 1, chunk 1</text>
+      <g id="p4-l1-context">
+        <rect x="52" y="444" width="236" height="11" fill="#2563EB"/>
+        <rect x="52" y="460" width="236" height="11" fill="#2563EB"/>
+        <rect x="52" y="476" width="236" height="11" fill="#D97706"/>
+        <rect x="52" y="492" width="236" height="11" fill="#2563EB"/>
+        <rect x="52" y="508" width="236" height="11" fill="#D97706"/>
+      </g>
+      <g id="p4-l1-test" fill="#D1D5DB">
+        <rect x="52" y="524" width="236" height="11"/>
+        <rect x="52" y="540" width="236" height="11"/>
+      </g>
+      <g font-size="13" fill="#555555">
+        <text x="312" y="484">context</text>
+        <text x="312" y="538">test rows</text>
+      </g>
+      <line x1="368" y1="485" x2="396" y2="485" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <rect x="400" y="453" width="140" height="64" fill="#FCFCFB" stroke="#555555" rx="10"/>
+      <text x="470" y="490" font-size="14.5" font-weight="bold" fill="#333333" text-anchor="middle">TFM pass 1</text>
+      <line x1="540" y1="485" x2="576" y2="485" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <g id="p4-l1-pred">
+        <rect x="584" y="463" width="180" height="11" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="584" y="479" width="180" height="11" fill="#FDE3C8" stroke="#D97706" stroke-width="1.5" stroke-dasharray="4 3"/>
+      </g>
+      <text x="584" y="452" font-size="13" fill="#555555">predicted labels</text>
+    </g>
+
+    <!-- lane 2: group 1, chunk 2 (same context, same colour code) -->
+    <g id="p4-lane2">
+      <rect x="40" y="576" width="260" height="142" fill="#FCFCFB" stroke="#0D9488" rx="4"/>
+      <text x="52" y="596" font-size="13.5" font-weight="bold" fill="#333333">group 1, chunk 2</text>
+      <g id="p4-l2-context">
+        <rect x="52" y="606" width="236" height="11" fill="#2563EB"/>
+        <rect x="52" y="622" width="236" height="11" fill="#2563EB"/>
+        <rect x="52" y="638" width="236" height="11" fill="#D97706"/>
+        <rect x="52" y="654" width="236" height="11" fill="#2563EB"/>
+        <rect x="52" y="670" width="236" height="11" fill="#D97706"/>
+      </g>
+      <g id="p4-l2-test" fill="#D1D5DB">
+        <rect x="52" y="686" width="236" height="11"/>
+        <rect x="52" y="702" width="236" height="11"/>
+      </g>
+      <line x1="308" y1="647" x2="396" y2="647" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <rect x="400" y="615" width="140" height="64" fill="#FCFCFB" stroke="#555555" rx="10"/>
+      <text x="470" y="652" font-size="14.5" font-weight="bold" fill="#333333" text-anchor="middle">TFM pass 2</text>
+      <line x1="540" y1="647" x2="576" y2="647" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <g id="p4-l2-pred">
+        <rect x="584" y="625" width="180" height="11" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="584" y="641" width="180" height="11" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 3"/>
+      </g>
+    </g>
+
+    <!-- lane 3: group 2, one chunk -->
+    <g id="p4-lane3">
+      <rect x="40" y="738" width="260" height="130" fill="#FCFCFB" stroke="#7C3AED" rx="4"/>
+      <text x="52" y="758" font-size="13.5" font-weight="bold" fill="#333333">group 2</text>
+      <g id="p4-l3-context">
+        <rect x="52" y="768" width="236" height="11" fill="#2563EB"/>
+        <rect x="52" y="784" width="236" height="11" fill="#D97706"/>
+        <rect x="52" y="800" width="236" height="11" fill="#2563EB"/>
+        <rect x="52" y="816" width="236" height="11" fill="#2563EB"/>
+      </g>
+      <g id="p4-l3-test" fill="#D1D5DB">
+        <rect x="52" y="832" width="236" height="11"/>
+        <rect x="52" y="848" width="236" height="11"/>
+      </g>
+      <line x1="308" y1="803" x2="396" y2="803" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <rect x="400" y="771" width="140" height="64" fill="#FCFCFB" stroke="#555555" rx="10"/>
+      <text x="470" y="808" font-size="14.5" font-weight="bold" fill="#333333" text-anchor="middle">TFM pass</text>
+      <line x1="540" y1="803" x2="576" y2="803" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <g id="p4-l3-pred">
+        <rect x="584" y="781" width="180" height="11" fill="#FDE3C8" stroke="#D97706" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="584" y="797" width="180" height="11" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 3"/>
+      </g>
+    </g>
+
+    <!-- collected predictions -->
+    <g id="p4-collect">
+      <rect x="840" y="566" width="240" height="150" fill="#FCFCFB" stroke="#333333" rx="10"/>
+      <text x="960" y="590" font-size="14.5" font-weight="bold" fill="#333333" text-anchor="middle">predicted test set</text>
+      <g id="p4-collect-rows">
+        <rect x="856" y="602" width="208" height="11" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="856" y="618" width="208" height="11" fill="#FDE3C8" stroke="#D97706" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="856" y="634" width="208" height="11" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="856" y="650" width="208" height="11" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="856" y="666" width="208" height="11" fill="#FDE3C8" stroke="#D97706" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <rect x="856" y="682" width="208" height="11" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5" stroke-dasharray="4 3"/>
+      </g>
+      <path d="M 764,478 Q 815,478 836,600" fill="none" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <path d="M 764,640 Q 805,640 836,640" fill="none" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <path d="M 764,796 Q 815,796 836,682" fill="none" stroke="#555555" stroke-width="1.5" marker-end="url(#arrow)"/>
+    </g>
+  </g>
+</svg>
