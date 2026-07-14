@@ -74,7 +74,7 @@ uv run python scripts/run_pending_c3c4.py   # C3/C4 (RAP)
 uv run python -m pytest
 ```
 
-Raw datasets are ingested into a local DuckDB file with `scripts/ingest_all_to_duckdb.R` (sources listed in `scratchpad/dataset_manifest.csv`; the data itself is not versioned). The gated TabPFN models require a `TABPFN_TOKEN` in the environment. All FTMs run on GPU (`device="cuda"`).
+Raw datasets are ingested into a local DuckDB file with `scripts/ingest_all_to_duckdb.R` (the data itself is not versioned). The gated TabPFN models require a `TABPFN_TOKEN` in the environment. All FTMs run on GPU (`device="cuda"`).
 
 ## Reproducibility
 

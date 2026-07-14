@@ -14,7 +14,7 @@ FTMs: tabiclv2 + tabpfn_3.
 
 Datasets — DELIBERATELY RESTRICTED to the 3 separable datasets (eu_cc, banksim,
 paysim), NOT the full formal grid. baf and fifar sit at a separability floor
-(see CLAUDE.md / scratchpad notes) where this design-space sweep is not
+(see CLAUDE.md) where this design-space sweep is not
 informative, and a prior full-formal-grid run of this script left partial baf
 output in results/diag after burning a large amount of GPU time on cells that
 were never going to be used. FORMAL_UNITS below is intentionally the 3-dataset

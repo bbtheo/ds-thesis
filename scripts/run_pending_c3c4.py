@@ -6,7 +6,7 @@ split ONCE and reuses it across all models/conditions (load+split is determinist
 in dataset+seed, so this is result-neutral), and skips already-completed runs
 (the runner is idempotent on config_hash).
 
-Scope (locked in scratchpad/phase3-plan.md):
+Scope (locked in the Phase-3 plan, 2026-06-18):
   * C3/C4 FTMs are ``tabpfn_3`` + ``tabiclv2`` ONLY (their C1/C2 baselines exist,
     so RQ3/RQ4 comparisons stay intact; other FTMs keep C1/C2 only).
   * C3 = mixed kNN retrieval, natural-as-found ratio (1 run per model×split).
