@@ -28,6 +28,7 @@ format:
     output-file: thesis.pdf
   html:
     format-links: false
+    appendix-style: none
     other-links:
       - text: PDF
         href: thesis.pdf
@@ -43,6 +44,9 @@ format:
     smooth-scroll: true
     link-external-newwindow: true
 number-sections: true
+filters:
+  - at: post-quarto
+    path: filters/appendix-letters.lua
 bibliography: thesis-refs.bib
 execute:
   echo: false
@@ -59,10 +63,21 @@ execute:
 
 :::: {.content-visible when-format="html"}
 # References {.unnumbered}
+::::
 
 ::: {#refs}
 :::
-::::
+
+```{=typst}
+#[
+#show: appendix
+```
+
+{{< include sections/X_appendix.qmd >}}
+
+```{=typst}
+]
+```
 
 ---
 bibliography: thesis-refs.bib
