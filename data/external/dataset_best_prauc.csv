@@ -1,0 +1,6 @@
+dataset,best_model,best_condition,best_pr_auc
+paysim,tabiclv2,C2,0.983
+banksim,tabiclv2,C2,0.909
+eu_cc,tabpfn_3,C2,0.869
+fifar,tabpfn_26,C2,0.224
+baf,tabiclv2,C2,0.183
