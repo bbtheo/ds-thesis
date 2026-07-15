@@ -1,0 +1,10 @@
+---
+bibliography: ../thesis-refs.bib
+---
+
+# CC_2025 as a cautionary tale {#sec-app-cc .appendix}
+
+- the labels seem to be statistically independent on every single feature.
+<!-- TODO: Add plot of distributions on all variables. -->
+
+# Time split ablations {#sec-app-second .appendix}
