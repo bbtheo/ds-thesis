@@ -13,6 +13,15 @@ library(ggplot2)
 library(dplyr)
 library(readr)
 library(scales)
+library(patchwork)
+library(gt)
+
+local({
+  lp <- .libPaths()
+  .libPaths(c(lp, "~/R/x86_64-pc-linux-gnu-library/4.5"))
+  suppressPackageStartupMessages(library(arrow))
+  .libPaths(lp)
+})
 
 prevalence <- read_csv(
   "data/external/dataset_fraud_prevalence.csv",
@@ -40,15 +49,29 @@ banksim_vs_eucc <- round(
   prevalence$fraud_rate[prevalence$dataset == "banksim"] /
     prevalence$fraud_rate[prevalence$dataset == "eu_cc"]
 )
+
+load_sample <- function(key) {
+  df <- arrow::read_parquet(file.path("data/sample", paste0(key, ".parquet")))
+  df$class <- factor(df$class, levels = c("Legitimate", "Fraud"))
+  df
+}
+
+feature_auc <- arrow::read_parquet("data/external/eda_feature_auc.parquet")
+auc_of <- function(ds, feat) {
+  sprintf("%.2f", feature_auc$auc_abs[
+    feature_auc$dataset == ds & feature_auc$feature == feat])
+}
+
+col_class <- c(Legitimate = "#2563EB", Fraud = "#D97706")
 ```
 
 ## Datasets {#sec-data-datasets}
 
-Fraud in banking is a sensitive topic, so only a limited number of datasets are freely available for research. This thesis uses every freely usable public dataset with transaction-level fraud labels that could be found, six in total. Two further candidate datasets were dropped, the reasons are elaborated further at the end of this section.
+Fraud in banking is a sensitive topic, so only a limited number of datasets are freely available for research. This thesis considers every freely usable public dataset with labelled fraud observations that could be found, seven in total. Five of them form the experimental grid; the remaining two were dropped for reasons elaborated at the end of this section. @tbl-datasets summarises their key figures.
 
-The eu_cc dataset holds `r n_rows_of("eu_cc")` observations with 30 features at a `r rate_of("eu_cc")` fraud prevalence, or `r n_fraud_of("eu_cc")` fraudulent transactions. It contains card transactions made by European cardholders over a two-day period in September 2013, collected in a research collaboration between the payment processor Worldline and the Machine Learning Group of Université Libre de Bruxelles [@dalpozzolo2015calibrating; @mlgulb2018creditcardfraud_kaggle]. The features reveal little about the underlying transactions. Twenty-eight of them (V1 to V28) are principal components produced by a principal component analysis (PCA) transformation that the data owners applied for confidentiality, so their original meanings are not disclosed. Only two features are left untouched the columns that represent time and transaction amount. 
+The eu_cc dataset holds `r n_rows_of("eu_cc")` observations with 30 features at a `r rate_of("eu_cc")` fraud prevalence, or `r n_fraud_of("eu_cc")` fraudulent transactions. It contains card transactions made by European cardholders over a two-day period in September 2013, collected in a research collaboration between the payment processor Worldline and the Machine Learning Group of Université Libre de Bruxelles [@dalpozzolo2015calibrating; @mlgulb2018creditcardfraud_kaggle]. The features reveal little about the underlying transactions. Twenty-eight of them (V1 to V28) are principal components produced by a principal component analysis (PCA) transformation that the data owners applied for confidentiality, so their original meanings are not disclosed. Only two features are left untouched: the time and the transaction amount columns.
 
-The banksim dataset holds `r n_rows_of("banksim")` observations with 7 features at a `r rate_of("banksim")` fraud prevalence, or `r n_fraud_of("banksim")` fraudulent transactions. The data comes from an agent-based simulation that was tuned on data provided by a Spanish bank [@lopezrojas2014banksim]. Because a simulator can produce an arbitrarily long sequence, this thesis uses the original author's canonical Kaggle posting [@lopezrojas2017banksim_kaggle]. WHere the simulation is run for 180 steps, which represents approximately six months of simulated observations.
+The banksim dataset holds `r n_rows_of("banksim")` observations with 7 features at a `r rate_of("banksim")` fraud prevalence, or `r n_fraud_of("banksim")` fraudulent transactions. The data comes from an agent-based simulation that was tuned on data provided by a Spanish bank [@lopezrojas2014banksim]. Because a simulator can produce an arbitrarily long sequence, this thesis uses the original author's canonical Kaggle posting [@lopezrojas2017banksim_kaggle], where the simulation runs for 180 steps, approximately six months of simulated activity.
 
 The paysim dataset is another agent-based simulation by @lopezrojas2016_paysim. Rather than the full 23 million observations of the original paper, this thesis uses the quarter-scale version posted on Kaggle by the original author [@lopezrojas2017paysim_kaggle]. This downscaled dataset holds `r n_rows_of("paysim")` observations at a `r rate_of("paysim")` fraud prevalence, or `r n_fraud_of("paysim")` fraudulent transactions.
 
@@ -60,12 +83,187 @@ Two candidate datasets were ultimately dropped. The ai_banking dataset (10,000 o
 
 Only eu_cc is real transaction data. The other datasets are agent-based simulations or synthetic constructions, a provenance caveat that the discussion of the results returns to.
 
+```{r}
+#| label: tbl-datasets
+#| tbl-cap: "The seven candidate datasets. Rows, fraud cases and fraud share are computed over the full datasets. Best PR-AUC is the best seed-mean over every model and context-construction cell of the formal experiment grid; the dropped datasets have no formal results."
+
+# Feature counts follow the modelling registry (src/data/schema.py):
+# raw columns minus the label and dropped ID/leakage columns.
+manifest <- tribble(
+  ~dataset,     ~group,              ~type,                    ~n_features,
+  "eu_cc",      "Experimental grid", "Real transactions",       30,
+  "banksim",    "Experimental grid", "Simulated transactions",   7,
+  "paysim",     "Experimental grid", "Simulated transactions",   7,
+  "baf",        "Experimental grid", "Synthetic applications",  30,
+  "fifar",      "Experimental grid", "Synthetic applications",  29,
+  "ai_banking", "Dropped",           "Synthetic transactions",   6,
+  "cc_2025",    "Dropped",           "Synthetic transactions",  11
+)
+
+# ai_banking is excluded from the prevalence extract (and the intro
+# figure); its counts were queried once from the DuckDB source table
+# raw_ai_banking_2025_banking_fraud_dataset.
+counts <- prevalence |>
+  select(dataset, n_rows, n_fraud) |>
+  bind_rows(tibble(dataset = "ai_banking", n_rows = 10000, n_fraud = 2838))
+
+manifest |>
+  left_join(counts, by = "dataset") |>
+  left_join(select(best_prauc, dataset, best_pr_auc), by = "dataset") |>
+  mutate(fraud_share = n_fraud / n_rows) |>
+  select(group, dataset, type, n_rows, n_features, n_fraud,
+         fraud_share, best_pr_auc) |>
+  gt(groupname_col = "group") |>
+  cols_label(
+    dataset = "Dataset",
+    type = "Type",
+    n_rows = "Rows",
+    n_features = "Features",
+    n_fraud = "Fraud cases",
+    fraud_share = "Fraud share",
+    best_pr_auc = "Best PR-AUC"
+  ) |>
+  fmt_number(columns = c(n_rows, n_fraud), decimals = 0, use_seps = TRUE) |>
+  fmt_percent(columns = fraud_share, decimals = 2) |>
+  fmt_number(columns = best_pr_auc, decimals = 3) |>
+  sub_missing(columns = best_pr_auc, missing_text = "-")
+```
+
+
 ## Difficulty lies in separability not imbalance {#sec-data-separability}
 
-The datasets differ not only in imbalance but also in how difficult they are. The best seed-mean PR-AUC over every model and context-construction cell of the formal grid orders the datasets paysim (`r best_of("paysim")`), banksim (`r best_of("banksim")`), eu_cc (`r best_of("eu_cc")`), fifar (`r best_of("fifar")`) and baf (`r best_of("baf")`), from easiest to hardest. Difficulty tracks imbalance in neither direction. The most imbalanced dataset, eu_cc, ranks third, behind banksim whose fraud prevalence is about `r banksim_vs_eucc` times higher. This strengthens the point of this section rather than illustrating a simple imbalance-difficulty trend: something other than the class ratio separates the easy datasets from the hard ones.
+The datasets differ not only in imbalance but also in how difficult they are. The best seed-mean PR-AUC over every model and context-construction cell of the formal grid, the last column of @tbl-datasets, orders the datasets paysim (`r best_of("paysim")`), banksim (`r best_of("banksim")`), eu_cc (`r best_of("eu_cc")`), fifar (`r best_of("fifar")`) and baf (`r best_of("baf")`), from easiest to hardest. Difficulty tracks imbalance in neither direction. The most imbalanced dataset, eu_cc, ranks third, behind banksim whose fraud prevalence is about `r banksim_vs_eucc` times higher. This strengthens the point of this section rather than illustrating a simple imbalance-difficulty trend: something other than the class ratio separates the easy datasets from the hard ones.
 
 That something is separability, how far the fraudulent transactions sit from the legitimate ones in feature space. The levels of separability track the order of the predictor performance, and it also makes intuitive sense that harder separability asks more of the predictor model. The construction of the datasets supports this reading. The paysim simulator generates its fraud by explicit rules, which leaves the fraudulent transactions nearly separable from the legitimate ones [@lopezrojas2016_paysim]. At the other end, baf and fifar were built with deliberately overlapping fraud and legitimate feature distributions, which caps what any detector can reach on them [@jesus2022baf_arxiv; @alves2023fifar_learning_to_defer].
 
-<!-- TODO add some plots and discussion about fraud distributions in the -->
+<!-- Class-conditional histograms. Each chunk reads the frozen extract for
+a dataset (load_sample; banksim and cc_2025 are full data, the rest hold
+all fraud rows plus a ~100,000-row sample of legitimate rows) and overlays
+per-class histograms normalised to density, so the minority class stays
+visible. Copy a chunk and change the dataset / feature to add more. -->
 
-This picture carries one validity caveat. The separability of paysim and eu_cc may be partly inflated by keeping the time column as a feature under a random split, a choice the methods chapter states explicitly. <!-- TODO: crossref the methods split-protocol section once it exists --> It is a threat to be bounded, not a settled property. For eu_cc the doubt is smaller, since its collection window spans only two days, and it is unclear whether the time feature can carry much signal over such a short sample. The time-ablation study in @sec-app-second bounds this threat.
+The class-conditional feature distributions make this reading concrete. @fig-eucc-v14-hist shows the distribution of V14, the most class-separating single feature of eu_cc. The legitimate mass concentrates in a narrow mode around zero while most of the fraud sits far to its left; ranking transactions by V14 alone reaches an area under the ROC curve (ROC-AUC) of `r auc_of("eu_cc", "V14")` on the full dataset. The hard datasets offer nothing comparable. The best single feature of both fifar and baf, the credit risk score, reaches a ROC-AUC of only `r auc_of("fifar", "credit_risk_score")` and `r auc_of("baf", "credit_risk_score")` respectively, in line with their deliberately overlapping construction.
+
+```{r}
+#| label: fig-eucc-v14-hist
+#| fig-cap: "Class-conditional histogram of the eu_cc feature V14, its most class-separating single feature (all 492 fraud rows and a 100,000-row sample of legitimate rows; each class is normalised to unit density)."
+#| fig-width: 6.2
+#| fig-height: 2.8
+#| warning: false
+#| message: false
+
+eu_cc <- load_sample("eu_cc")
+
+ggplot(eu_cc, aes(V14, after_stat(density), fill = class)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 60) +
+  scale_fill_manual(values = col_class, name = NULL) +
+  labs(x = "V14", y = "Density") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+Banksim shows the same pattern through an interpretable feature (@fig-banksim-amount-hist). In raw counts the fraud class is invisible under the imbalance; normalised per class, fraudulent amounts concentrate roughly an order of magnitude above typical legitimate spending, and the amount alone reaches a ROC-AUC of `r auc_of("banksim", "amount")`. In paysim the strongest single feature, the originating account balance, reaches `r auc_of("paysim", "oldbalanceOrg")`; its near-separability emerges only jointly with the transaction type, since all of its fraud occurs in transfers and cash-outs [@lopezrojas2016_paysim].
+
+```{r}
+#| label: fig-banksim-amount-hist
+#| fig-cap: "The banksim transaction amount on a logarithmic scale (amount + 1), over the full dataset. (a) Raw transaction counts: the fraud class is barely visible under the class imbalance. (b) The same data normalised to unit density per class: fraudulent amounts concentrate roughly an order of magnitude above legitimate ones."
+#| fig-width: 6.2
+#| fig-height: 3.0
+#| warning: false
+#| message: false
+
+banksim <- load_sample("banksim")
+
+count_plot <- ggplot(banksim, aes(amount + 1, fill = class)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 60) +
+  scale_x_log10(labels = label_number(big.mark = ",")) +
+  scale_fill_manual(values = col_class, name = NULL) +
+  labs(x = "Transaction amount + 1 (log scale)", y = "Count") +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank())
+
+dens_plot <- ggplot(banksim, aes(amount + 1, after_stat(density), fill = class)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 60) +
+  scale_x_log10(labels = label_number(big.mark = ",")) +
+  scale_fill_manual(values = col_class, name = NULL) +
+  labs(x = "Transaction amount + 1 (log scale)", y = "Density") +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank())
+
+count_plot + dens_plot +
+  plot_annotation(tag_levels = "a") +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+Combining features sharpens the separation further. @fig-eucc-2d-density overlays two-dimensional density contours of the eu_cc features V14 and V4: the legitimate transactions form a tight cluster around the origin while the fraud density stretches along a ridge into a region the legitimate class barely occupies. The two classes still overlap near the origin, so full separation needs additional dimensions, but even this two-feature view isolates a large share of the fraud.
+
+```{r}
+#| label: fig-eucc-2d-density
+#| fig-cap: "Two-dimensional density contours of eu_cc features V14 and V4 by class. Contour levels are computed per class, so the shapes are comparable despite the imbalance."
+#| fig-width: 6.2
+#| fig-height: 3.4
+#| warning: false
+#| message: false
+
+ggplot(eu_cc, aes(V14, V4, colour = class)) +
+  # contour_var = "ndensity" scales each class density to max 1, otherwise
+  # the flat fraud density never crosses the shared contour breaks
+  geom_density_2d(contour_var = "ndensity", bins = 8, linewidth = 0.8) +
+  scale_colour_manual(values = col_class, name = NULL) +
+  labs(x = "V14", y = "V4") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+Separability has a temporal dimension as well. @fig-fraud-rate-time plots the share of fraud over each dataset's native time column, with every time axis normalised to its covered window. The share is far from constant. Banksim drifts downward over its 180 simulated days, baf falls and then roughly doubles towards its final month, and eu_cc concentrates much of its fraud into a few sharp spikes. Paysim is the extreme case: the simulator generates legitimate transactions in only part of its hourly steps while fraud continues around the clock, so hours consisting purely of fraud occur throughout the window and the final simulated day contains no legitimate transactions at all.
+
+```{r}
+#| label: fig-fraud-rate-time
+#| fig-cap: "Share of fraudulent observations over time, computed on the full datasets. Each series is binned in its native time unit (eu_cc by hour, banksim and paysim by simulated day, baf by month) and its time axis is normalised to the covered window. fifar is omitted as a subset of baf. The paysim share leaves the plotted range at the end of its window and reaches 100 % on the final simulated day."
+#| fig-width: 6.2
+#| fig-height: 3.4
+#| warning: false
+#| message: false
+
+time_fraud_rate <- arrow::read_parquet("data/external/eda_time_fraud_rate.parquet")
+
+paysim_by_day <- time_fraud_rate |>
+  filter(dataset == "paysim") |>
+  mutate(t = floor(t / 24)) |>
+  summarise(n = sum(n), n_fraud = sum(n_fraud), .by = t)
+
+bind_rows(
+  time_fraud_rate |>
+    filter(dataset == "eu_cc") |>
+    select(t, n, n_fraud) |>
+    mutate(dataset = "eu_cc (hour)"),
+  time_fraud_rate |>
+    filter(dataset == "banksim") |>
+    select(t, n, n_fraud) |>
+    mutate(dataset = "banksim (day)"),
+  paysim_by_day |>
+    mutate(dataset = "paysim (day)"),
+  time_fraud_rate |>
+    filter(dataset == "baf") |>
+    select(t, n, n_fraud) |>
+    mutate(dataset = "baf (month)")) |>
+  mutate(t = (t / max(t)) * 100, .by = dataset) |> # normalise the time axis
+  ggplot(aes(t, n_fraud / n, colour = dataset)) +
+  geom_line(linewidth = 1) +
+  scale_colour_manual(values = c(
+    "baf (month)"   = "#eda100",
+    "banksim (day)" = "#008300",
+    "eu_cc (hour)"  = "#2a78d6",
+    "paysim (day)"  = "#e87ba4"
+  ), name = NULL) +
+  scale_y_continuous(labels = label_percent()) +
+  # coord (not scale) limits: the paysim line visibly exits the panel at the
+  # end instead of its last days being silently dropped
+  coord_cartesian(ylim = c(0, 0.05)) +
+  labs(x = "Position in time window (%)", y = "Fraud share") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+This temporal structure carries one validity caveat. The time columns of eu_cc, banksim and paysim are deliberately kept as features under a random split, a choice the methods chapter states explicitly. <!-- TODO: crossref the methods split-protocol section once it exists --> The regularities visible in @fig-fraud-rate-time are then available to every model, so the measured separability of paysim and eu_cc may be partly inflated by them. It is a threat to be bounded, not a settled property. For eu_cc the doubt is smaller, since its collection window spans only two days, and it is unclear whether the time feature can carry much signal over such a short sample. The time-ablation study in @sec-app-second bounds this threat.
