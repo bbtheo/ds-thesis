@@ -6,9 +6,11 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 
-# Data (large, not versioned; data/external holds small tracked figure-source data)
+# Data (large, not versioned; data/external and data/sample hold small
+# tracked figure-source / frozen-EDA-sample data)
 /data/*
 !/data/external/
+!/data/sample/
 
 # Training artifacts
 catboost_info/

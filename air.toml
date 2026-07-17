@@ -1,0 +1,7 @@
+# Air formatter config (Posit's R formatter) — pins the R code style used
+# across the thesis .qmd chapters so files can't drift to the editor's raw
+# auto-indent. These are Air's defaults, stated explicitly.
+[format]
+indent-style = "space"
+indent-width = 2
+line-width = 80

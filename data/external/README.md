@@ -2,6 +2,28 @@
 
 Small, tracked datasets used only for thesis figures (not for model training).
 
+## eda_*.parquet — data-chapter EDA summaries
+
+Full-data (exact, unsampled) summary statistics over the six formal-grid
+datasets, computed inside DuckDB by `scripts/export_data_summaries.R` and
+consumed by the data-chapter figures so that `quarto render` never needs the
+(unversioned) DuckDB file. Regenerate with:
+
+```bash
+Rscript scripts/export_data_summaries.R
+```
+
+| File | Grain | Contents |
+|---|---|---|
+| `eda_feature_auc.parquet` | dataset × numeric feature | tie-aware single-feature ROC-AUC (`auc`), orientation-free `auc_abs = max(auc, 1-auc)`, class counts |
+| `eda_feature_stats.parquet` | dataset × feature × class | n, mean, sd, min, max |
+| `eda_feature_quantiles.parquet` | dataset × feature × class × p | class-conditional quantiles at p ∈ {.01,.05,.1,.25,.5,.75,.9,.95,.99} |
+| `eda_time_fraud_rate.parquet` | dataset × time bin | n, n_fraud per time bin (eu_cc hour, banksim/paysim step, baf/fifar month) |
+| `eda_categorical_fraud_rate.parquet` | dataset × categorical feature × level | n, n_fraud for the top 30 levels by volume (`n_levels_total` records the untruncated level count) |
+
+`class` is `fraud`/`legit`; features follow `src/data/schema.py` (label, ID,
+and leakage columns excluded; fifar = train ∪ test with labels unified).
+
 ## statfin_fraud_offences_13ex.csv
 
 Police-recorded fraud offences in Finland, 1980–2025, whole country, annual.
