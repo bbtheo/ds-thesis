@@ -35,6 +35,11 @@ jobs:
             any::dplyr
             any::readr
             any::scales
+            any::arrow
+            any::patchwork
+            any::gt
+            any::lubridate
+            any::glue
 
       - name: Render thesis.qmd (PDF via Typst + self-contained HTML)
         run: quarto render thesis.qmd
