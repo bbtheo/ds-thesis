@@ -41,3 +41,6 @@ thesis_files/
 
 # Run logs (regenerable)
 results/*.log
+
+/.quarto/
+**/*.quarto_ipynb
