@@ -144,7 +144,7 @@ The empirical answer to that decomposition is asymmetric. Raising the in-context
 
 The positive finding also extends prior work. @tanna2026data_presentation_resampling report that a balanced context improves tabular foundation models on imbalanced credit data at fraud rates of roughly 8–22 %. The experiments here confirm the effect at prevalences one to two orders of magnitude lower (0.13–1.5 %) and evaluate it with the threshold-free ranking metrics that fraud detection requires but that study does not report. The resulting rebalanced-context configuration is, without any per-dataset hyperparameter tuning, competitive with methodologically sound published state-of-the-art results on the benchmark datasets used in this thesis.
 
-## Research questions
+## Research questions {#sec-intro-rqs}
 
 The decomposition above translates into four research questions.
 

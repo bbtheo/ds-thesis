@@ -61,6 +61,8 @@ execute:
 
 {{< include sections/4_data.qmd >}}
 
+{{< include sections/5_methods.qmd >}}
+
 :::: {.content-visible when-format="html"}
 # References {.unnumbered}
 ::::

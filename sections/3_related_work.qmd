@@ -42,7 +42,7 @@ The literature also predicts Multiple ways how retrieval can fail when the minor
 
 ## A taxonomy of test-time context construction methods {#sec-rw-taxonomy}
 
-The previously reviewed methods can be organised along five orthogonal axes of test-time context construction: relevance (random or kNN selection), balance (natural or tuned class ratio), granularity (one global context or a context per group of test points), replacement (unique rows or sampling with replacement) and selection mode (mixed or class-conditional retrieval). The experiments of this thesis compare four conditions along these axes, defined fully in the methods chapter: a random context (C1), a balanced random context (C2), a retrieved context (C3) and the full RAP configuration (C4). <!-- TODO: add a crossref to the methods chapter once it exists --> @tbl-rw-taxonomy collects the conditions and the reviewed methods together to a legitable table.
+The previously reviewed methods can be organised along five orthogonal axes of test-time context construction: relevance (random or kNN selection), balance (natural or tuned class ratio), granularity (one global context or a context per group of test points), replacement (unique rows or sampling with replacement) and selection mode (mixed or class-conditional retrieval). The experiments of this thesis compare four conditions along these axes, defined fully in @sec-methods-conditions: a random context (C1), a balanced random context (C2), a retrieved context (C3) and the full RAP configuration (C4). @tbl-rw-taxonomy collects the conditions and the reviewed methods together to a legitable table.
 
 | Method | Relevance | Balance | Granularity | Replacement | Selection mode |
 |:---|---|---|---|---|---|
