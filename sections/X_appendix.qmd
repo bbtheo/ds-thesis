@@ -46,7 +46,7 @@ cc_2025 |>
 ```
 
 ```{r}
-#| label: fig-app-cc-season
+#| label: fig-app-cc-day
 #| fig-cap: "Absolutely no intra-day variation on the data. This means in the night as many transactions and as prevalent to get frauded as it is in the high periods."
 #| fig-width: 6.2
 #| fig-height: 4.6
