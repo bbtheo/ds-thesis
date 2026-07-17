@@ -4,7 +4,105 @@ bibliography: ../thesis-refs.bib
 
 # CC_2025 as a cautionary tale {#sec-app-cc .appendix}
 
+```{r}
+#| label: cc-app-setup
+#| include: false
+
+# cc_2025 is shipped in FULL in data/sample/ (small enough), so this is the
+# complete dataset at true class balance, not a fraud-overrepresented sample
+# (see data/sample/README.md). This file renders after 4_data.qmd in
+# thesis.qmd, so arrow is already loaded, but load it again here (guarded)
+# so the appendix also works standalone.
+if (!requireNamespace("arrow", quietly = TRUE)) {
+  local({
+    lp <- .libPaths()
+    .libPaths(c(lp, "~/R/x86_64-pc-linux-gnu-library/4.5"))
+    suppressPackageStartupMessages(library(arrow))
+    .libPaths(lp)
+  })
+}
+
+cc_2025 <- arrow::read_parquet("data/sample/cc_2025.parquet")
+names(cc_2025) <- tolower(names(cc_2025))
+```
+
 - the labels seem to be statistically independent on every single feature.
-<!-- TODO: Add plot of distributions on all variables. -->
+
+```{r}
+#| label: fig-app-cc-season
+#| fig-cap: "Absolutely no seasonal variation on the data."
+#| fig-width: 6.2
+#| fig-height: 4.6
+#| warning: false
+#| message: false
+
+cc_2025 |>
+  summarise(n = n(), n_fraud = sum(fraud_flag), .by = country) |>
+  mutate(fraud_rate = n_fraud / n) |>
+  ggplot(aes(y = fraud_rate, x = country)) +
+  geom_col() +
+  labs(x = "Country", y = "Fraud rate")
+
+```
+
+```{r}
+#| label: fig-app-cc-season
+#| fig-cap: "Absolutely no intra-day variation on the data. This means in the night as many transactions and as prevalent to get frauded as it is in the high periods."
+#| fig-width: 6.2
+#| fig-height: 4.6
+#| warning: false
+#| message: false
+
+
+cc_2025 |> 
+    mutate(
+        hour = lubridate::hour(transaction_date)
+    ) |> 
+    summarise(
+        n = n(),
+        fraud_rate = sum(fraud_flag)/n,
+        .by = c(hour, transaction_type)
+    ) |> 
+        ggplot()+
+        geom_col(aes(hour, n, fill = transaction_type), alpha= 0.75)+
+        geom_line(aes(hour, fraud_rate*1e+6, colour = transaction_type)) #TODO: set the second axis to
+
+
+```
+
+- the labels seem to be statistically independent on every single feature.
+
+```{r}
+#| label: fig-app-cc-country
+#| fig-cap: "Per country fraud rates are    all exactly same."
+#| fig-width: 6.2
+#| fig-height: 4.6
+#| warning: false
+#| message: false
+cc_2025 |>
+  summarise(n = n(), n_fraud = sum(fraud_flag), .by = transaction_type) |>
+  mutate(fraud_rate = n_fraud / n) |>
+  ggplot(aes(y = fraud_rate, x = transaction_type)) +
+  geom_col() +
+  labs(x = "Transaction type", y = "Fraud rate")
+```
+
+
+```{r}
+#| label: tbl-in
+# exact full-data counts (cc_2025 is shipped whole in data/sample/)
+cc_2025 |>
+    summarise(
+        n = n(),
+        .by = c(device_type, is_chip, is_pin_used)
+        ) |> 
+    arrange(device_type, is_chip, is_pin_used) |> 
+    mutate(
+        share = n / sum(n),.by = device_type,
+        share = glue::glue("{round(share * 100, 1)} %")
+        )
+```
+
+All in all seems that there has been  
 
 # Time split ablations {#sec-app-second .appendix}
