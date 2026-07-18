@@ -3,28 +3,35 @@ Relevance ablation (ratio-matched): isolate the PURE relevance effect by the 2x2
 of selection mechanisms {legit: random|kNN} x {fraud: random|kNN}, holding fraud
 ratio, context size, and granularity G identical.
 
-This driver runs only the two CROSS arms (the others are reused):
+Four arms, all runnable natively at matched G (default ARMS=[KR,RK], the
+others are opt-in via --arms):
   KR = kNN legit + random fraud   (isolates legit-relevance)
   RK = random legit + kNN fraud   (isolates fraud-relevance)
-Reused: RR (random both) = imported from the C2 grid (results/runs_c2grid/,
-run_c2_grid.py) — that grid is architecturally G=1 (one global context, one
-fit; no per-group refit at all), NOT a matched-G arm. KK (kNN both) = the
-design-space sweep (results/runs_rapds/, run_rap_designspace.py, G32
-full-context) — that grid, like KR/RK here, runs per-group at G=32.
+  RR = random legit + random fraud, per-group at G=32. This closes the G
+       confound against the RR@G=1 grid in results/runs_c2grid/
+       (run_c2_grid.py): that grid is architecturally G=1 (one global
+       context, one fit, no per-group refit), NOT a matched-G arm. Running
+       RR here gives the true matched-G control the old docstring called an
+       open gap.
+  KK = kNN legit + kNN fraud (both-relevant control). At fixed ratios
+       (0.05/0.10) this duplicates coverage that already exists in the
+       design-space sweep (results/runs_rapds/, run_rap_designspace.py, G32
+       full-context), which lives in a different hash space (cell_hash here
+       is namespaced "relevance_ablation", so there is no collision); native
+       KK is intended mainly for the natural-ratio level below, which
+       runs_rapds does not sweep.
 
-So the 4 arms do NOT form a clean 2x2 at matched (ratio, context, G): RR sits
-at G=1 while KR/RK/KK all sit at G=32. The narrated RR->KR contrast ("flipping
-only the legit selector") also silently flips granularity (1 fit -> 32
-refits), confounding the comparison. The clean matched-G contrast is RK vs KK
-(both G=32, differing only in the legit selector); RR vs RK is a fraud-selector
-check across the G confound, not a controlled isolation. A true RR@G=32 arm
-(per-group random-both) would close this gap and is an open control — it is
-not run by this script.
+Ratio also accepts the literal token "natural": target fraud ratio = the
+training-split fraud prevalence of the dataset (len(fidx)/len(ytr), computed
+at runtime; no with-replacement duplication arises at this level). Hashed as
+the string "natural" (stable across datasets/splits); numeric ratios continue
+to hash as the float exactly as before.
 
-Grid (configurable via CLI): G {1,32} x ratio {0.05,0.10} x context {10k,50k}
-x {tabiclv2,tabpfn_3} x {eu_cc,banksim,paysim} x 3 seeds. metric=cosine (the
-favourable metric from the design-space sweep). With-replacement fraud oversample
-(matches C2/C4). Idempotent (config hash -> parquet) -> results/runs_ablation/.
+Grid (configurable via CLI): arm {KR,RK,RR,KK} x G {1,32} x ratio
+{0.05,0.10,natural} x context {10k,50k} x {tabiclv2,tabpfn_3} x
+{eu_cc,banksim,paysim} x 3 seeds. metric=cosine (the favourable metric from
+the design-space sweep). With-replacement fraud oversample (matches C2/C4).
+Idempotent (config hash -> parquet) -> results/runs_ablation/.
 
 Usage:
   # batch 1 (core, completes the 2x2 via reuse): G=32, ctx=50k
@@ -32,6 +39,10 @@ Usage:
   # full grid
   TABPFN_TOKEN=... uv run python scripts/run_relevance_ablation.py
   uv run python scripts/run_relevance_ablation.py --dry-run
+  # RR@G32 control (closes the granularity confound): 36 cells
+  TABPFN_TOKEN=... uv run python scripts/run_relevance_ablation.py --arms RR --granularities 32 --contexts 50000 --ratios 0.05 0.10
+  # natural-ratio arms (selection-mode contrast at natural prevalence): 18+18 cells
+  TABPFN_TOKEN=... uv run python scripts/run_relevance_ablation.py --arms RR KK --granularities 32 --contexts 50000 --ratios natural
 """
 from __future__ import annotations
 
@@ -77,9 +88,9 @@ def cell_hash(c):
     return hashlib.sha256(s.encode()).hexdigest()[:12]
 
 
-def configs(ds, seed, model, grans, ratios, contexts):
+def configs(ds, seed, model, grans, ratios, contexts, arms):
     return [dict(dataset=ds, seed=seed, model=model, arm=a, G=g, fraud_ratio=r, context_size=c)
-            for a in ARMS for g in grans for r in ratios for c in contexts]
+            for a in arms for g in grans for r in ratios for c in contexts]
 
 
 def done_set():
@@ -97,23 +108,28 @@ def grouping(Xs, G, seed):
     return lab, centres
 
 
+def parse_ratio(s):
+    return s if s == "natural" else float(s)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--datasets", nargs="*", default=None)
+    ap.add_argument("--arms", nargs="*", choices=["KR", "RK", "RR", "KK"], default=ARMS)
     ap.add_argument("--granularities", nargs="*", type=int, default=GRANS)
-    ap.add_argument("--ratios", nargs="*", type=float, default=RATIOS)
+    ap.add_argument("--ratios", nargs="*", type=parse_ratio, default=RATIOS)
     ap.add_argument("--contexts", nargs="*", type=int, default=CONTEXTS)
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    grans, ratios, contexts = args.granularities, args.ratios, args.contexts
+    grans, ratios, contexts, arms = args.granularities, args.ratios, args.contexts, args.arms
 
     units = [(d, s) for d, ss in UNITS.items() for s in ss if (args.datasets is None or d in args.datasets)]
-    allc = [(d, s, m, c) for (d, s) in units for m in MODELS for c in configs(d, s, m, grans, ratios, contexts)]
+    allc = [(d, s, m, c) for (d, s) in units for m in MODELS for c in configs(d, s, m, grans, ratios, contexts, arms)]
     done = done_set()
     pending = [x for x in allc if cell_hash(x[3]) not in done]
     print(f"Total: {len(allc)}  pending: {len(pending)}  done: {len(allc)-len(pending)} "
-          f"| G={grans} ratios={ratios} ctx={contexts}")
+          f"| arms={arms} G={grans} ratios={ratios} ctx={contexts}")
     if args.dry_run:
         return
 
@@ -125,7 +141,7 @@ def main():
 
     nrun = 0
     for (ds, seed) in units:
-        ucells = [(m, c) for m in MODELS for c in configs(ds, seed, m, grans, ratios, contexts)]
+        ucells = [(m, c) for m in MODELS for c in configs(ds, seed, m, grans, ratios, contexts, arms)]
         done = done_set()
         if all(cell_hash(c) in done for _, c in ucells):
             continue
@@ -137,7 +153,7 @@ def main():
         groups = {g: grouping(Xtes_s, g, seed) for g in grans}
 
         for model in MODELS:
-            mc = [c for c in configs(ds, seed, model, grans, ratios, contexts) if cell_hash(c) not in done]
+            mc = [c for c in configs(ds, seed, model, grans, ratios, contexts, arms) if cell_hash(c) not in done]
             if not mc:
                 continue
             limit = CONTEXT_LIMITS[model]
@@ -150,20 +166,22 @@ def main():
                 arm, G, ratio = cfg["arm"], cfg["G"], cfg["fraud_ratio"]
                 ctx = min(cfg["context_size"], len(ytr), limit)
                 lab, centres = groups[G]
-                nf = int(round(ratio * ctx)); nl = ctx - nf; nfu = min(nf, len(fidx))
+                ratio_num = (len(fidx) / len(ytr)) if ratio == "natural" else ratio
+                nf = int(round(ratio_num * ctx)); nf = max(nf, 1); nl = ctx - nf; nfu = min(nf, len(fidx))
                 probs = np.empty(len(ytes), np.float64); fit_s = pred_s = 0.0; fn_acc = []
                 for gi in range(len(centres)):
-                    c = centres[gi]; rng = np.random.default_rng([seed, gi, int(round(ratio*1000)), cfg["context_size"]])
-                    # fraud: KR=random, RK=kNN
-                    if arm == "RK":
+                    c = centres[gi]
+                    rng = np.random.default_rng([seed, gi, (1000003 if ratio == "natural" else int(round(ratio*1000))), cfg["context_size"]])  # sentinel must be non-negative (SeedSequence) and > any ratio*1000
+                    # fraud: KR/RR=random, RK/KK=kNN
+                    if arm in ("RK", "KK"):
                         cf = fidx[rf.query(c, nfu)]
                     else:
                         cf = rng.choice(fidx, nfu, replace=False)
                     if nf > nfu and nfu > 0:
                         cf = np.concatenate([cf, rng.choice(cf, nf - nfu, replace=True)])
-                    # legit: KR=kNN, RK=random
+                    # legit: KR/KK=kNN, RK/RR=random
                     nlt = min(nl, len(lidx))
-                    if arm == "KR":
+                    if arm in ("KR", "KK"):
                         cl = lidx[rl.query(c, nlt)]
                     else:
                         cl = rng.choice(lidx, nlt, replace=False)
@@ -182,7 +200,8 @@ def main():
                 mm = compute_metrics(ytes, probs, prevalence=prev if subsampled else None)
                 row = {"run_id": rid, "study": "relevance_ablation", "v": ABL_VERSION, "dataset": ds,
                        "seed": int(seed), "model": model, "arm": arm, "G": int(G), "metric": METRIC,
-                       "fraud_ratio": ratio, "context_size_req": int(cfg["context_size"]), "context_size_eff": int(ctx),
+                       "fraud_ratio": float(ratio_num), "ratio_spec": str(ratio),
+                       "context_size_req": int(cfg["context_size"]), "context_size_eff": int(ctx),
                        "n_estimators": N_ESTIMATORS, "pr_auc": mm["pr_auc"], "recall_at_1fpr": mm["recall_at_1fpr"],
                        "recall_at_5fpr": mm["recall_at_5fpr"], "roc_auc": mm["roc_auc"], "f1": mm["f1"],
                        "context_fraud_n": int(nf), "context_fraud_unique": int(nfu), "n_groups": int(len(centres)),
