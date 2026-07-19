@@ -15,13 +15,7 @@ library(readr)
 library(scales)
 library(patchwork)
 library(gt)
-
-local({
-  lp <- .libPaths()
-  .libPaths(c(lp, "~/R/x86_64-pc-linux-gnu-library/4.5"))
-  suppressPackageStartupMessages(library(arrow))
-  .libPaths(lp)
-})
+library(nanoparquet)
 
 prevalence <- read_csv(
   "data/external/dataset_fraud_prevalence.csv",
@@ -51,12 +45,12 @@ banksim_vs_eucc <- round(
 )
 
 load_sample <- function(key) {
-  df <- arrow::read_parquet(file.path("data/sample", paste0(key, ".parquet")))
+  df <- nanoparquet::read_parquet(file.path("data/sample", paste0(key, ".parquet")))
   df$class <- factor(df$class, levels = c("Legitimate", "Fraud"))
   df
 }
 
-feature_auc <- arrow::read_parquet("data/external/eda_feature_auc.parquet")
+feature_auc <- nanoparquet::read_parquet("data/external/eda_feature_auc.parquet")
 auc_of <- function(ds, feat) {
   sprintf("%.2f", feature_auc$auc_abs[
     feature_auc$dataset == ds & feature_auc$feature == feat])
@@ -226,7 +220,7 @@ Separability has a temporal dimension as well. @fig-fraud-rate-time plots the sh
 #| warning: false
 #| message: false
 
-time_fraud_rate <- arrow::read_parquet("data/external/eda_time_fraud_rate.parquet")
+time_fraud_rate <- nanoparquet::read_parquet("data/external/eda_time_fraud_rate.parquet")
 
 paysim_by_day <- time_fraud_rate |>
   filter(dataset == "paysim") |>

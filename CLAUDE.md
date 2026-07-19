@@ -128,7 +128,7 @@ TabPFN 2.5/2.6 are gated: runner commands need `TABPFN_TOKEN` set in the environ
 
 - **Python** for all model training, inference, and RAP pipeline
 - **R + Quarto + Typst** for analysis, tables, figures, and thesis document
-- **No reticulate** — Python writes parquet to `results/runs/`, R reads via `arrow::open_dataset()`
+- **No reticulate** — Python writes parquet to `results/runs/`, R reads via `nanoparquet::read_parquet()` 
 - **GPU:** NVIDIA 5070; all FTMs use `device="cuda"`
 - **Feature scaling:** loader returns unscaled features. For kNN retrieval (C3/C4), apply `StandardScaler` (fit on train only) before building the retriever index. Context rows passed to FTMs remain unscaled.
 - **Idempotent runner:** config hash → run_id → output path. Skips if file exists. Safe to kill and restart.
