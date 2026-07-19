@@ -33,9 +33,11 @@ jobs:
             any::rmarkdown
             any::ggplot2
             any::dplyr
+            any::tidyr
             any::readr
             any::scales
-            any::arrow
+            any::nanoparquet
+            any::ggpattern
             any::patchwork
             any::gt
             any::lubridate
