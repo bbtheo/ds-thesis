@@ -36,7 +36,57 @@ The GBDT baselines are XGBoost and CatBoost [@chen2016xgboost_scalable_tree_boos
 
 ## Splitting protocol {#sec-methods-splits}
 
-Each dataset is split into training and test sets with a seeded stratified 80/20 split. Banksim is instead split by its `customer` column, with every customer assigned wholly to one side of the split, because the encoded customer identifier would otherwise act as an entity key that leaks labels from training to test [@lopezrojas2014banksim]. <!-- TODO: double check that no other dataset has customer columns --> Fifar uses its fixed published split.
+Each dataset is split into training and test sets with a seeded stratified 80/20 split. Banksim is instead split by its `customer` column, with every customer assigned wholly to one side of the split, because the encoded customer identifier would otherwise act as an entity key that leaks labels from training to test [@lopezrojas2014banksim]. <!-- TODO: double check that no other dataset has customer columns --> Fifar uses its fixed published split. The amounts of negatives on every dataset has been capped to 30 000. This means that the eu_cc test_sets were scored fully. The speedup gained from this sumpsampling was substantial in paysim it offered approximately 42 <!-- inl R code that calculates the speedup form results --> times speed ups comapred to a full test-set scoring. <!-- TODO: Idea for appendix ablation or future research. Does the amount of negative samples affect the scoring of positive test set values. Do a sweep form just positive to 1000-to-1 positive underrepresentations. -->
 
 The time columns are deliberately kept as features (`Time` in eu_cc, `step` in banksim and paysim). Under a random split this is a temporal-leakage threat: the temporal regularities shown in @fig-fraud-rate-time are available to every model and may inflate the ranking metrics of the separable datasets, paysim and eu_cc in particular. The threat is treated as a limitation in the discussion and bounded by a separate temporal-generalisation ablation found in @sec-app-second. In this ablations baf is split by its `month` column following the dataset's published protocol [@jesus2022baf_arxiv].
 
+## Evaluation metrics
+
+The primary evalution metrics for the models are prevalence corrected PR-AUC, and recall at 1% an 5%. The prevalence has to be corrected in measurements due to the negative class sumsampling explained in @sec-methods-splits. This chapter explains the how the evaluation metrics are constructed.
+
+Let $\{(x_i, y_i)\}_{i=1}^{n}$ be the scored test sample with labels $y_i \in \{0, 1\}$, $P = \sum_i y_i$ positives and $N = n - P$ negatives,and let $s_i = f(x_i)$ be the model's fraud score for row $i$. A threshold $t$ classifies row $i$ as fraud iff $s_i \ge t$. The threshold-dependent counts are:
+
+$$
+\begin{aligned}
+\mathrm{TP}(t) &= \sum_{i=1}^{n} \mathbf{1}[s_i \ge t]y_i \\
+\mathrm{FP}(t) &= \sum_{i=1}^{n} \mathbf{1}[s_i \ge t](1 - y_i)
+\end{aligned}
+$$
+
+Then the thredhold dependent rates can be trivially derived from these:
+
+$$
+\begin{aligned}
+\mathrm{TPR}(t) &= \frac{TP}{\sum_{i=1}^{n} \mathbf{1}[s_i \ge t]}\\
+\mathrm{FPR}(t) &= \frac{FP}{\sum_{i=1}^{n} \mathbf{1}[s_i \ge t]}
+\end{aligned}
+$$
+Then we are to derive the prevalence calibrated precision following @siblini2020metrics example. W let $\pi$ denote the fraud prevalence of the full test split. Precision at threshold $t$, calibrated to prevalence $\pi$, follows from Bayes':
+
+$$
+\mathrm{Prec}_{\pi}(t) = \frac
+{\pi~\mathrm{TPR}(t)}
+{\pi~\mathrm{TPR}(t) + (1 - \pi)~\mathrm{FPR}(t)}
+$${#eq-prec}
+
+Then the Recall doesn't need to get calibration as it is no dependent on the negative ($y_i = 0$) class.
+
+$$
+\mathrm{Rec}(t)=\frac{TP(t)}{\sum_{i=1}^{n}y_i }
+$${#eq-rec}
+
+Only the distinct observed score values yield distinct operating points, so the threshold set is $\{t_1 > t_2 > \dots > t_K\} = \{s_i\}$ with tied scores collapsed into a single threshold and by definition $Rec(t_K) = 1$.
+
+The precision-recall curve is the set of points $\bigl(Rec(t_k), \mathrm{Prec}_{\pi}(t_k)\bigr)$ with the points defined from @eq-rec and @eq-prec. The area under this curve (AUC-PR) is, in idealised form, the integral of precision over recall. [@davis2006relationship_pr_roc]
+
+$$
+\mathrm{AUC\text{-}PR}_{\pi} = \int_{0}^{1} \mathrm{Prec}_{\pi}(r) \, \mathrm{d}r,
+$$
+which we estimate by average precision, the right-continuous step-sum over the empirical operating points ( assuming $\mathrm{Rec}(0) = 0$):
+
+$$
+\mathrm{AP}_{\pi}
+  = \sum_{k=1}^{K} \bigl( \mathrm{Rec}(t_k)-\mathrm{Rec}(t_{k-1}) \bigr) \mathrm{Prec}_{\pi}(t_k).
+$$
+
+$\mathrm{AP}$ weights each precision value by the recall gained at that threshold linear interpolation between PR points is deliberately not used, as the estimate is optimistically biased [@davis2006relationship_pr_roc].
