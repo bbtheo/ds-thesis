@@ -6,7 +6,7 @@ bibliography: ../thesis-refs.bib
 
 This chapter describes the experimental design of the thesis. Every tabular foundation model in the experiments is evaluated frozen. The pretrained weights are used exactly as published, and no fine-tuning or any other gradient update is applied [@thomas2024localpfn_retrieval_finetuning]. The only element that varies is test-time context construction, meaning which labelled training rows fill the context window and at what class ratio. As @sec-bg-pfn established, the context is the only task-specific information the model conditions on, so the context is the natural point of intervention.
 
-The research questions of @sec-intro-rqs decompose into pairwise contrasts between the four context-construction conditions C1 to C4 which are further elaborated in @sec-sec-methods-conditions. This decomposition is the spine of the research design. The rest of the chapter defines the conditions and the machinery that runs them.
+The research questions of @sec-intro-rqs decompose into pairwise contrasts between the four context-construction conditions C1 to C4 which are further elaborated in @sec-methods-conditions. This decomposition is the spine of the research design. The rest of the chapter defines the conditions and the machinery that runs them.
 
 ## Experimental conditions {#sec-methods-conditions}
 
@@ -61,7 +61,7 @@ $$
 \mathrm{FPR}(t) &= \frac{FP}{\sum_{i=1}^{n} \mathbf{1}[s_i \ge t]}
 \end{aligned}
 $$
-Then we are to derive the prevalence calibrated precision following @siblini2020metrics example. W let $\pi$ denote the fraud prevalence of the full test split. Precision at threshold $t$, calibrated to prevalence $\pi$, follows from Bayes':
+Then we are to derive the prevalence calibrated precision following @siblini2020_metrics example. W let $\pi$ denote the fraud prevalence of the full test split. Precision at threshold $t$, calibrated to prevalence $\pi$, follows from Bayes':
 
 $$
 \mathrm{Prec}_{\pi}(t) = \frac
@@ -87,6 +87,12 @@ which we estimate by average precision, the right-continuous step-sum over the e
 $$
 \mathrm{AP}_{\pi}
   = \sum_{k=1}^{K} \bigl( \mathrm{Rec}(t_k)-\mathrm{Rec}(t_{k-1}) \bigr) \mathrm{Prec}_{\pi}(t_k).
-$$
+$${#eq-ap}
 
 $\mathrm{AP}$ weights each precision value by the recall gained at that threshold linear interpolation between PR points is deliberately not used, as the estimate is optimistically biased [@davis2006relationship_pr_roc].
+
+## The experimental grid {#sec-methods-grid}
+
+The full design crosses the datasets of @sec-data-datasets with seeds, models and conditions. THis means that the datasets (excluding fifar  which is run only with one seed,) are run with multiple random seeds. The state of the art models are run with ten different seeds and the rest are run with three seeds. The C1 and C2 run on all five TFMs, while C3 and C4 run only on TabPFN v3 and TabICLv2, as stated in @sec-methods-rap. Together with the GBDT baselines this core grid holds 460 runs. On fifar the split stays fixed across these seeds, so the seed variation there reflects only the random context draws.
+
+The statistical treatment of the grid is descriptive. Per-dataset values are reported as the mean over seeds with its standard deviation, with fifar contributing a single split. Paired comparisons, such as the C2 minus C1 difference in PR-AUC over the 65 paired core runs, are reported with a confidence interval rather than a bare mean, but the deltas are read as descriptive summaries rather than formal tests, since runs of different models share the same dataset-seed splits and are therefore not independent observations. Win, tie and loss are here defined as an absolute difference below 0.005 counting as a tie. Any effect smaller than one seed standard deviation is flagged as directional rather than significant at three seeds.
