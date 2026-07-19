@@ -63,6 +63,15 @@ execute:
 
 {{< include sections/5_methods.qmd >}}
 
+{{< include sections/6_results.qmd >}}
+
+{{< include sections/7_discussion.qmd >}}
+
+{{< include sections/8_limitations_and_future.qmd >}}
+
+{{< include sections/9_conclusion.qmd >}}
+
+
 :::: {.content-visible when-format="html"}
 # References {.unnumbered}
 ::::
