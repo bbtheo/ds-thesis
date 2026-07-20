@@ -10,99 +10,245 @@ bibliography: ../thesis-refs.bib
 
 # cc_2025 is shipped in FULL in data/sample/ (small enough), so this is the
 # complete dataset at true class balance, not a fraud-overrepresented sample
-# (see data/sample/README.md). This file renders after 4_data.qmd in
-# thesis.qmd, so arrow is already loaded, but load it again here (guarded)
-# so the appendix also works standalone.
-if (!requireNamespace("arrow", quietly = TRUE)) {
-  local({
-    lp <- .libPaths()
-    .libPaths(c(lp, "~/R/x86_64-pc-linux-gnu-library/4.5"))
-    suppressPackageStartupMessages(library(arrow))
-    .libPaths(lp)
-  })
-}
+# (see data/sample/README.md). Inside thesis.qmd these packages are already
+# attached by 4_data.qmd; reloading them is a no-op and keeps the appendix
+# renderable standalone.
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(scales)
+  library(patchwork)
+  library(gt)
+  library(glue)
+  library(nanoparquet)
+})
 
-cc_2025 <- arrow::read_parquet("data/sample/cc_2025.parquet")
+cc_2025 <- nanoparquet::read_parquet("data/sample/cc_2025.parquet")
 names(cc_2025) <- tolower(names(cc_2025))
-```
 
-- the labels seem to be statistically independent on every single feature.
+cc_rate <- mean(cc_2025$fraud_flag)
+cc_country <- summarise(cc_2025, rate = mean(fraud_flag), .by = country)
+cc_country_p <- chisq.test(table(cc_2025$country, cc_2025$fraud_flag))$p.value
+cc_type_p <- chisq.test(table(cc_2025$transaction_type, cc_2025$fraud_flag))$p.value
 
-```{r}
-#| label: fig-app-cc-season
-#| fig-cap: "Absolutely no seasonal variation on the data."
-#| fig-width: 6.2
-#| fig-height: 4.6
-#| warning: false
-#| message: false
+pct <- function(x, acc = 0.01) percent(x, accuracy = acc, suffix = " %")
 
-cc_2025 |>
-  summarise(n = n(), n_fraud = sum(fraud_flag), .by = country) |>
-  mutate(fraud_rate = n_fraud / n) |>
-  ggplot(aes(y = fraud_rate, x = country)) +
-  geom_col() +
-  labs(x = "Country", y = "Fraud rate")
+# ATM / Online / POS series colours (CVD-validated triple)
+col_txn <- c(ATM = "#2563EB", Online = "#D97706", POS = "#7C3AED")
 
-```
-
-```{r}
-#| label: fig-app-cc-day
-#| fig-cap: "Absolutely no intra-day variation on the data. This means in the night as many transactions and as prevalent to get frauded as it is in the high periods."
-#| fig-width: 6.2
-#| fig-height: 4.6
-#| warning: false
-#| message: false
-
-
-cc_2025 |> 
-    mutate(
-        hour = lubridate::hour(transaction_date)
-    ) |> 
-    summarise(
-        n = n(),
-        fraud_rate = sum(fraud_flag)/n,
-        .by = c(hour, transaction_type)
-    ) |> 
-        ggplot()+
-        geom_col(aes(hour, n, fill = transaction_type), alpha= 0.75)+
-        geom_line(aes(hour, fraud_rate*1e+6, colour = transaction_type)) #TODO: set the second axis to
-
-
+cap_cc_country <- glue(
+  "Fraud rate by country. The per-country rates span ",
+  "{pct(min(cc_country$rate))} to {pct(max(cc_country$rate))} around the ",
+  "global rate of {pct(cc_rate, 0.1)} (dashed line); the differences are not ",
+  "statistically significant (chi-squared p = {round(cc_country_p, 2)})."
+)
+cap_cc_type <- glue(
+  "Fraud rate by transaction type. The three rates agree with the global ",
+  "rate of {pct(cc_rate, 0.1)} (dashed line) to two decimal places ",
+  "(chi-squared p = {round(cc_type_p, 2)})."
+)
 ```
 
 - the labels seem to be statistically independent on every single feature.
 
 ```{r}
 #| label: fig-app-cc-country
-#| fig-cap: "Per country fraud rates are    all exactly same."
+#| fig-cap: !expr cap_cc_country
+#| fig-width: 6.2
+#| fig-height: 2.6
+#| warning: false
+#| message: false
+
+cc_country |>
+  ggplot(aes(reorder(country, rate), rate)) +
+  geom_col(fill = "grey65", width = 0.7) +
+  geom_hline(yintercept = cc_rate, linetype = "dashed",
+             colour = "grey30", linewidth = 0.4) +
+  scale_y_continuous(labels = label_percent(suffix = " %")) +
+  labs(x = NULL, y = "Fraud rate") +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank())
+```
+
+```{r}
+#| label: fig-app-cc-day
+#| fig-cap: "Hourly structure of cc_2025. Transaction volume is uniform over the day (top), and the fraud rate of every transaction type fluctuates only within sampling noise around the global rate (dashed line, bottom). Real payment data shows a strong diurnal cycle in both."
 #| fig-width: 6.2
 #| fig-height: 4.6
 #| warning: false
 #| message: false
+
+by_hour <- cc_2025 |>
+  summarise(n = n(), rate = mean(fraud_flag),
+            .by = c(hour_of_day, transaction_type))
+
+p_volume <- by_hour |>
+  summarise(n = sum(n), .by = hour_of_day) |>
+  ggplot(aes(hour_of_day, n)) +
+  geom_col(width = 0.8, fill = "grey65") +
+  scale_y_continuous(labels = label_number(scale = 1e-3, suffix = "k")) +
+  labs(x = NULL, y = "Transactions") +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank())
+
+p_rate <- by_hour |>
+  ggplot(aes(hour_of_day, rate, colour = transaction_type)) +
+  geom_hline(yintercept = cc_rate, linetype = "dashed",
+             colour = "grey30", linewidth = 0.4) +
+  geom_line(linewidth = 0.6) +
+  scale_colour_manual(values = col_txn, name = NULL) +
+  scale_y_continuous(labels = label_percent(suffix = " %"),
+                     limits = c(0, NA)) +
+  labs(x = "Hour of day", y = "Fraud rate") +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank())
+
+(p_volume / p_rate) + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: fig-app-cc-type
+#| fig-cap: !expr cap_cc_type
+#| fig-width: 6.2
+#| fig-height: 2.4
+#| warning: false
+#| message: false
+
 cc_2025 |>
-  summarise(n = n(), n_fraud = sum(fraud_flag), .by = transaction_type) |>
-  mutate(fraud_rate = n_fraud / n) |>
-  ggplot(aes(y = fraud_rate, x = transaction_type)) +
-  geom_col() +
-  labs(x = "Transaction type", y = "Fraud rate")
+  summarise(rate = mean(fraud_flag), .by = transaction_type) |>
+  ggplot(aes(reorder(transaction_type, rate), rate)) +
+  geom_col(fill = "grey65", width = 0.6) +
+  geom_hline(yintercept = cc_rate, linetype = "dashed",
+             colour = "grey30", linewidth = 0.4) +
+  scale_y_continuous(labels = label_percent(suffix = " %")) +
+  labs(x = NULL, y = "Fraud rate") +
+  theme_minimal(base_size = 10) +
+  theme(panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank())
 ```
 
 
 ```{r}
-#| label: tbl-in
-# exact full-data counts (cc_2025 is shipped whole in data/sample/)
+#| label: tbl-app-cc-device
+#| tbl-cap: "Chip and PIN usage by device type (exact full-data counts; cc_2025 is shipped whole in data/sample/). The share of every chip/PIN combination is identical across device types, including chip use recorded for about a quarter of Web transactions, and the fraud rate is flat across all twelve cells."
+
 cc_2025 |>
-    summarise(
-        n = n(),
-        .by = c(device_type, is_chip, is_pin_used)
-        ) |> 
-    arrange(device_type, is_chip, is_pin_used) |> 
-    mutate(
-        share = n / sum(n),.by = device_type,
-        share = glue::glue("{round(share * 100, 1)} %")
-        )
+  summarise(n = n(), rate = mean(fraud_flag),
+            .by = c(device_type, is_chip, is_pin_used)) |>
+  mutate(share = n / sum(n), .by = device_type) |>
+  arrange(device_type, is_chip, is_pin_used) |>
+  mutate(across(c(is_chip, is_pin_used),
+                \(x) ifelse(x == 1, "Yes", "No"))) |>
+  select(device_type, is_chip, is_pin_used, n, share, rate) |>
+  gt(groupname_col = "device_type") |>
+  cols_label(
+    is_chip = "Chip",
+    is_pin_used = "PIN",
+    n = "Rows",
+    share = "Share",
+    rate = "Fraud rate"
+  ) |>
+  fmt_number(columns = n, decimals = 0, use_seps = TRUE) |>
+  fmt_percent(columns = c(share, rate), decimals = 1)
 ```
 
 All in all seems that there has been  
 
 # Time split ablations {#sec-app-second .appendix}
+
+# The fraud-ratio and context-size sweep {#sec-app-c2-sweep .appendix}
+
+Condition C2 fixes a single balancing target, but the choice of operating point matters as much as the mechanism itself. This sweep maps the stratified-random mechanism over the full plane of fraud ratio and context size, so the ratio effect can be characterised as a curve rather than read off a single point. It also gives the C4 ratio sweep (@sec-methods-conditions) a like-for-like counterpart at every ratio: one condition with retrieval, one without, both under the same with-replacement fraud policy.
+
+The sweep crosses nine fraud ratios (2, 4, 5, 6, 8, 10, 20, 30 and 40 percent) with five requested context sizes (10,000, 20,000, 30,000, 40,000 and 50,000 rows). The effective context size is capped at the smaller of the training-set size and the model's checkpoint limit, and both the requested and the effective size are recorded. Two TFMs (TabICLv2 and TabPFN v3) are run on three datasets (EU CC, BankSim and PaySim), each at three seeds, with the same ensemble size (n_estimators = 4) as the main grid, for 810 runs in total. Each cell fits a single global context and one model refit; there is no per-group retrieval or refitting here, unlike C3/C4. These three datasets span the fraud-scarcity range of the formal grid: EU CC holds only about 394 training fraud rows, while BankSim and PaySim hold thousands of them, a difference that matters for the next point.
+
+```{r}
+#| label: c2-app-setup
+#| include: false
+
+c2_grid <- list.files("results/runs_c2grid", pattern = "\\.parquet$",
+                      full.names = TRUE) |>
+  lapply(nanoparquet::read_parquet) |>
+  bind_rows()
+
+# one point per sweep cell: mean over the 2 models x 3 seeds
+c2_cells <- c2_grid |>
+  summarise(pr_auc = mean(pr_auc), dup_factor = mean(dup_factor),
+            .by = c(dataset, fraud_ratio, context_size_req))
+
+# dataset colours as in the temporal-structure figure of the data chapter
+col_dataset <- c(banksim = "#008300", eu_cc = "#2a78d6", paysim = "#e87ba4")
+
+cap_c2_dup <- glue(
+  "Cell-mean PR-AUC against the duplication factor (log axis; each point is ",
+  "one ratio and context cell of @fig-app-c2-ratio). Only EU CC reaches heavy ",
+  "duplication, up to about ",
+  "{round(max(c2_cells$dup_factor))}-fold, and its PR-AUC declines once ",
+  "duplication exceeds roughly tenfold (loess line). The rise at the left ",
+  "edge is confounded: the duplication-free EU CC cells are exactly the ",
+  "small-context, low-ratio cells."
+)
+```
+
+@fig-app-c2-ratio shows the seed- and model-mean PR-AUC over the swept plane.
+
+```{r}
+#| label: fig-app-c2-ratio
+#| fig-cap: "Mean PR-AUC over the fraud ratio and context size plane, averaged over both models and all seeds (log-scaled ratio axis; the vertical scale differs per panel). Larger contexts help mainly at low ratios and where fraud is scarcest (EU CC). Ratios beyond about 10 % degrade EU CC and BankSim, while PaySim plateaus at mid ratios."
+#| fig-width: 6.2
+#| fig-height: 3.2
+#| warning: false
+#| message: false
+
+c2_cells |>
+  mutate(ctx = factor(context_size_req,
+                      labels = c("10k", "20k", "30k", "40k", "50k"))) |>
+  ggplot(aes(fraud_ratio, pr_auc, colour = ctx, group = ctx)) +
+  geom_line(linewidth = 0.6) +
+  geom_point(size = 1.2) +
+  facet_wrap(~dataset, scales = "free_y") +
+  scale_colour_manual(values = c("10k" = "#BFDBFE", "20k" = "#93C5FD",
+                                 "30k" = "#60A5FA", "40k" = "#3B82F6",
+                                 "50k" = "#1D4ED8"),
+                      name = "Context size") +
+  scale_x_log10(breaks = c(0.02, 0.05, 0.10, 0.20, 0.40),
+                labels = label_percent(suffix = " %")) +
+  labs(x = "Requested in-context fraud ratio", y = "PR-AUC") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+The context's fraud quota is filled by sampling with replacement once unique training fraud rows run out, the same policy used by the C4 sampler. This has two consequences. First, the requested ratio is always realised, so a high-ratio cell measures the intended ratio rather than a silently smaller one produced by exhausting the available fraud rows. Second, duplication becomes an observable and recorded quantity, the ratio of fraud rows in the context to unique fraud rows among them. On EU CC the arithmetic forces heavy duplication at high ratios: a 40 percent quota of a 50,000-row context is 20,000 fraud rows drawn against roughly 394 unique frauds, close to 50-fold duplication. BankSim and PaySim, by contrast, stay near a duplication factor of one through the low and mid ratios and reach only roughly three-to-3.5-fold at the highest ratios (about 3.5-fold on BankSim's ~5,760 training frauds and 3-fold on PaySim's ~6,570), an order of magnitude milder than EU CC's roughly 50-fold. The sweep therefore doubles as a duplication study conducted entirely in a random context. Any effect of duplication alone appears here, free of retrieval, which gives the later analysis of C4 behaviour a control that separates duplication effects from retrieval effects. @fig-app-c2-dup plots the same cells against their duplication factor. <!-- TODO: crossref the results-chapter sweep section once it exists -->
+
+```{r}
+#| label: fig-app-c2-dup
+#| fig-cap: !expr cap_c2_dup
+#| fig-width: 6.2
+#| fig-height: 3.6
+#| warning: false
+#| message: false
+
+c2_cells |>
+  ggplot(aes(dup_factor, pr_auc, colour = dataset)) +
+  geom_point(size = 1.4, alpha = 0.8) +
+  geom_smooth(data = filter(c2_cells, dataset == "eu_cc"), se = FALSE,
+              linewidth = 0.7, method = "loess", formula = y ~ x) +
+  scale_colour_manual(values = col_dataset, name = NULL) +
+  scale_x_log10(breaks = c(1, 3, 10, 25, 50)) +
+  labs(x = "Duplication factor (context fraud rows per unique fraud row)",
+       y = "PR-AUC") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+# Ratio-matched relevance ablation {#sec-app-relevance-ablation .appendix}
+
+Neither grid contrast isolates relevance cleanly. The step from C1 to C3 varies the selection mechanism but lets the realised fraud ratio drift with the local neighbourhood of each cluster, so a ratio effect and a relevance effect are entangled. The step from C3 to C4 changes ratio enforcement and the retrieval mode at the same time, so it is not a single-factor comparison either. The ablation described here removes both confounds by crossing the two selection mechanisms independently, at a matched ratio, context size and granularity.
+
+The design is a 2x2 over selection mechanisms: legitimate rows drawn either at random or by kNN, crossed with fraud rows drawn either at random or by kNN. This yields four arms: RR (random legitimate rows, random fraud rows), KR (kNN legitimate rows, random fraud rows), RK (random legitimate rows, kNN fraud rows) and KK (kNN both). All four arms run per group at a fixed granularity of G = 32 k-means clusters of the scored test set. Granularity is fixed rather than silhouette-selected here, so grouping is held constant across arms and cannot itself explain a difference between them. Retrieval uses the cosine metric, the requested context size is 50,000 rows, and the fraud ratio is swept over 5 percent and 10 percent, filled with the same with-replacement top-up policy as C2 and C4. The ablation runs on TabICLv2 and TabPFN v3, on EU CC, BankSim and PaySim, at three seeds. RR reproduces C2's stratified-random selection, operated at a set ratio rather than the 50/50 target and with the same with-replacement policy as the sweep, under per-group refitting, and KK is the class-conditional retrieval core of C4; each single-letter flip from one of these arms isolates one selector. Because RR runs at the same G = 32 as the other three arms, comparing it against the global-context sweep of @sec-app-c2-sweep additionally isolates the effect of per-group granularity itself, separately from the effect of any selector.
+
+The ablation is additionally run at a natural ratio level, defined per dataset as the training-split fraud prevalence, for the RR and KK arms only. This supplies the clean form of the C1-to-C3 contrast: both arms see the same natural class ratio and the same grouping, so only the selection mechanism differs between them. At the natural level the fraud quota sits below the unique fraud count by construction, so no duplication occurs. <!-- TODO: inline R for the realised natural ratios per dataset -->
+
+Each contrast in this design answers a distinct question. The ratio effect is addressed in @sec-methods-conditions. Granularity is addressed by RR against the global sweep of @sec-app-c2-sweep. Legitimate-selector relevance is addressed by RK against KK and by RR against KR. Fraud-selector relevance is addressed by RR against RK and by KR against KK. The selection mechanism at natural prevalence, free of ratio enforcement, is addressed by RR against KK at the natural level.
