@@ -2,4 +2,201 @@
 bibliography: ../thesis-refs.bib
 ---
 
-# Results
+# Results {#sec-results}
+
+In this chapter we present the results of the tests that were outlined in @sec-methods. At first we will provide the results to the research questions that were expanded in @sec-intro-rqs. Then we will provide additional information on design-space sweeps and ablation studies that are further elaborated in appendixes. Finally, we will compare the best case scenarios of the TFMs to the current state of the art GBDT models from literature.
+
+```{r}
+#| label: results-setup
+#| include: false
+
+runs <- list.files("results/runs", pattern = "\\.parquet$", full.names = TRUE) |>
+  lapply(\(f) select(read_parquet(f), dataset, model, condition, seed,
+                     pipeline_version, pr_auc, n_train,
+                     context_size, context_fraud_n)) |>
+  bind_rows()
+
+formal_datasets <- c("eu_cc", "banksim", "paysim", "fifar", "baf")
+gbdt_models <- c("xgboost", "catboost")
+v4 <- runs |> filter(pipeline_version == 4, dataset %in% formal_datasets)
+c1 <- v4 |> filter(condition == "C1")
+
+## RQ1: family means over the five datasets (per-model means first, so
+## the 10-seed models do not outweigh the 3-seed ones inside a family)
+fam_means <- c1 |>
+  mutate(family = if_else(model %in% gbdt_models, "GBDT", "TFM")) |>
+  group_by(family, dataset, model) |>
+  summarise(pr = mean(pr_auc),.groups = "drop_last") |>
+  summarise(pr = mean(pr),.groups = "drop_last") |>
+  summarise(pr = mean(pr),.groups = "drop_last") |> 
+  bind_rows( c1 |> 
+    filter(model %in% c("tabiclv2", "tabpfn_3")) |> 
+    mutate(family = "SOTA TFM") |>
+  group_by(family, dataset, model) |>
+  summarise(pr = mean(pr_auc),.groups = "drop_last") |>
+  summarise(pr = mean(pr),.groups = "drop_last") |>
+  summarise(pr = mean(pr),.groups = "drop_last")
+  )
+
+
+
+fam_of <- \(f) sprintf("%.3f", fam_means$pr[fam_means$family == f])
+ntrain_rng <- range(c1$n_train)
+
+## RQ2: paired C1-to-C2 deltas per TFM model and per dataset
+paired <- v4 |>
+  filter(condition %in% c("C1", "C2"), !model %in% gbdt_models) |>
+  select(dataset, model, seed, condition, pr_auc) |>
+  tidyr::pivot_wider(names_from = condition, values_from = pr_auc) |>
+  filter(!is.na(C1), !is.na(C2)) |>
+  mutate(delta = C2 - C1)
+gain_by_model <- paired |> group_by(model) |> summarise(d = mean(delta))
+gain_of <- \(m) sprintf("%+.3f", gain_by_model$d[gain_by_model$model == m])
+gain_paysim <- paired |>
+  filter(dataset == "paysim") |> summarise(d = mean(delta)) |> pull(d)
+canon <- paired |> filter(dataset == "paysim", model == "tabpfn_v2") |>
+  summarise(C1 = mean(C1), C2 = mean(C2))
+canon_fr <- v4 |>
+  filter(dataset == "paysim", model == "tabpfn_v2",
+         condition %in% c("C1", "C2")) |>
+  group_by(condition) |>
+  summarise(fr = mean(context_fraud_n), .groups = "drop")
+canon_fr_of <- \(cond) comma(round(canon_fr$fr[canon_fr$condition == cond]))
+
+## realized in-context fraud shares
+c1_share <- c1 |> filter(!model %in% gbdt_models) |>
+  summarise(s = mean(context_fraud_n / context_size)) |> pull(s)
+c2_share <- v4 |>
+  filter(condition == "C2", !model %in% gbdt_models, model != "tabpfn_v2") |>
+  group_by(dataset) |>
+  summarise(s = mean(context_fraud_n / context_size), .groups = "drop")
+c2_share_eucc <- c2_share$s[c2_share$dataset == "eu_cc"]
+c2_share_rng <- range(c2_share$s[c2_share$dataset != "eu_cc"])
+
+## C2 fraud-ratio sweep on eu_cc (50k context) and the XGBoost reference
+c2grid <- list.files("results/runs_c2grid", pattern = "\\.parquet$",
+                     full.names = TRUE) |>
+  lapply(read_parquet) |>
+  bind_rows()
+sweep_datasets <- c("eu_cc", "banksim", "paysim","baf")
+sweep_labels <- c("EU CC", "BankSim", "PaySim", "BAF")
+rq2_summ <- c2grid |>
+  filter(context_size_req == 50000) |>
+  group_by(dataset, model, fraud_ratio) |>
+  summarise(mean_pr = mean(pr_auc), sd_pr = sd(pr_auc), .groups = "drop") |>
+  mutate(model = factor(model, c("tabpfn_3", "tabiclv2"),
+                        c("TabPFN v3", "TabICLv2")),
+         dataset = factor(dataset, sweep_datasets, sweep_labels))
+xgb_ref <- c1 |>
+  filter(model == "xgboost", dataset %in% sweep_datasets) |>
+  group_by(dataset) |>
+  summarise(pr = mean(pr_auc), .groups = "drop") |>
+  mutate(dataset = factor(dataset, sweep_datasets, sweep_labels))
+```
+
+## Research question 1: GBDTs vs TFMs on randomly sampled context windows {#sec-results-rq1}
+
+Under a random context, context-limited TFMs and full-data trees are roughly on par. Averaged over the five formal datasets, the GBDT family reaches a mean PR-AUC of `r fam_of("GBDT")` against `r fam_of("TFM")` for the whole TFM family and the mean of the two SOTA TFM models it climbs to `{r} fam_of("SOTA TFM")`. Comparing the best-in-family TFM to the best GBDT on each dataset gives two TFM wins (eu_cc and banksim), one effective tie (fifar) and two losses (paysim and baf). @fig-rq1-c1-prauc shows the per-model breakdown.
+
+```{r}
+#| label: fig-rq1-c1-prauc
+#| fig-cap: "PR-AUC under condition C1 (random context) on the five formal-grid datasets. Columns are means over the seeds: three for the other models, ten for TabPFN v3 and TabICLv2. Whiskers extend one standard deviation above the mean; FiFAR has none because it runs on a single pre-defined split. Striped columns mark the GBDT baselines, which are trained on the full training split."
+#| fig-width: 6.5
+#| fig-height: 3.8
+#| warning: false
+
+c1_summ <- c1 |>
+  group_by(dataset, model) |>
+  summarise(mean_pr = mean(pr_auc), sd_pr = sd(pr_auc), .groups = "drop") |>
+  mutate(
+    family = if_else(model %in% c("xgboost", "catboost"), "GBDT", "TFM"),
+    model = factor(
+      model,
+      c("xgboost", "catboost", "tabpfn_v2", "tabpfn_25",
+        "tabpfn_26", "tabpfn_3", "tabiclv2"),
+      c("XGBoost", "CatBoost", "TabPFN v2", "TabPFN 2.5",
+        "TabPFN 2.6", "TabPFN v3", "TabICLv2")
+    ),
+    dataset = factor(
+      dataset,
+      c("eu_cc", "banksim", "paysim", "fifar", "baf"),
+      c("EU CC", "BankSim", "PaySim", "FiFAR", "BAF")
+    )
+  )
+
+ggplot(c1_summ, aes(dataset, mean_pr, fill = model)) +
+  geom_col_pattern(
+    aes(pattern = family),
+    position = position_dodge2(padding = 0.15), width = 0.85,
+    colour = "grey25", linewidth = 0.15,
+    pattern_colour = NA, pattern_fill = "white",
+    pattern_angle = 45, pattern_density = 0.25, pattern_spacing = 0.02,
+    pattern_key_scale_factor = 0.6
+  ) +
+  geom_errorbar(aes(ymin = mean_pr, ymax = mean_pr + sd_pr),
+                position = position_dodge2(padding = 0.15),
+                width = 0.85, linewidth = 0.35, colour = "grey25",
+                na.rm = TRUE) +
+  scale_fill_manual(
+    values = c("#2a78d6", "#008300", "#e87ba4", "#eda100",
+               "#1baf7a", "#eb6834", "#4a3aa7"),
+    name = NULL
+  ) +
+  scale_pattern_manual(values = c(GBDT = "stripe", TFM = "none")) +
+  scale_y_continuous(limits = c(0, 1.1), expand = expansion(0)) +
+  labs(x = NULL, y = "PR-AUC") +
+  guides(
+    pattern = "none",
+    fill = guide_legend(
+      nrow = 2, byrow = TRUE,
+      override.aes = list(
+        pattern = c("stripe", "stripe", "none", "none", "none", "none", "none")
+      )
+    )
+  ) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "bottom",
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+```
+
+The comparison is intentionally asymmetric. The GBDTs are trained on the full training split, from `r comma(ntrain_rng[1])` rows on eu_cc to `r comma(ntrain_rng[2])` on paysim, while the TFMs see only a random subsample of at most 50,000 of those rows (@sec-methods-conditions). The asymmetry persists under every later condition, because no context-construction strategy adds data. The balancing gains of @sec-results-rq2 are achieved despite it. The answer to RQ1 is that the TFMs are at par with the GBDT baselines even in the worst-case scenario of random subsampling, as can be seen in @fig-rq1-c1-prauc.
+
+## Research question 2: the fraud ratio's effect on prediction performance {#sec-results-rq2}
+
+The standalone deficiency of a random context is its in-context fraud count. A C1 context holds the natural fraud rate whatever its size, on average `r sprintf("%.1f", 100 * c1_share)` % across the runs. So even a 50,000-row window carries only a few hundred fraud rows, and the 10,000-row window of TabPFN v2 can carry only a handful. Where this deficiency is worst, the gains from balancing are highest. The mean paired C1-to-C2 lift in PR-AUC is largest for the smallest-context model, TabPFN v2, at `r gain_of("tabpfn_v2")`, against `r gain_of("tabpfn_25")` for TabPFN 2.5, `r gain_of("tabpfn_26")` for TabPFN 2.6, `r gain_of("tabpfn_3")` for TabPFN v3 and `r gain_of("tabiclv2")` for TabICLv2. Across datasets the lift is largest on the most imbalanced dataset, paysim, at `r sprintf("%+.3f", gain_paysim)`. The canonical case combines both: on paysim, TabPFN v2 holds on average `r canon_fr_of("C1")` fraud rows in its C1 window and scores a PR-AUC of `r sprintf("%.3f", canon$C1)`; balancing lifts the fraud count to `r canon_fr_of("C2")` and the PR-AUC to `r sprintf("%.3f", canon$C2)`.
+
+@fig-rq2-ratio-sweep traces the ratio lever directly on the three datasets covered by the ratio sweep which is delved depper in  @sec-app-c2-sweep. Results are for the two strongest TFMs at a fixed 50,000-row stratified random context. BAF and Fifar sit at the separability floor and were not  thus part of this additional ratio and context size sweep. The optimal ratio is dataset-dependent but broad. On eu_cc and banksim, PR-AUC varies little for ratios up to about 0.10 and declines once the ratio reaches 0.20. On eu_cc the high ratios additionally imply heavy duplication of its roughly 394 <!-- TODO: inline R instead of you running it yourself --> unique training fraud rows. On paysim, PR-AUC rises up to a ratio of 0.30 and stays roughly flat thereafter. Ratios near 0.10 sit close to the peak on every dataset.  The models sit at or above the full-data XGBoost baseline through the middle of the sweep on all three datasets, and fall below it only at the extremes.
+
+```{r}
+#| label: fig-rq2-ratio-sweep
+#| fig-cap: "PR-AUC against the requested in-context fraud ratio, for the two strongest TFMs at a fixed 50,000-row stratified random context. Lines are means over three seeds; the bands span one standard deviation on each side of the mean. Note the free y-scales. The dotted lines mark the per-dataset seed-mean of the full-data XGBoost baseline under C1."
+#| fig-width: 6.5
+#| fig-height: 8
+#| warning: false
+
+ggplot(rq2_summ, aes(fraud_ratio, mean_pr, colour = model, fill = model)) +
+  geom_hline(data = xgb_ref, aes(yintercept = pr),
+             linetype = "dotted", colour = "grey25") +
+  geom_ribbon(aes(ymin = mean_pr - sd_pr, ymax = mean_pr + sd_pr),
+              alpha = 0.2, colour = NA) +
+  geom_line(linewidth = 0.6) +
+  geom_point(size = 1.1) +
+  facet_wrap(~ dataset, nrow = 4, scales = "free_y") +
+  scale_colour_manual(values = c("TabPFN v3" = "#eb6834",
+                                 "TabICLv2" = "#4a3aa7"), name = NULL) +
+  scale_fill_manual(values = c("TabPFN v3" = "#eb6834",
+                               "TabICLv2" = "#4a3aa7"), name = NULL) +
+  scale_x_continuous(breaks = c(0.02, 0.1, 0.2, 0.3, 0.4)) +
+  labs(x = "Requested in-context fraud ratio", y = "PR-AUC") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+The C1-to-C2 gain is measured on threshold-free ranking metrics. On our interpretive reading of the in-context versus in-weight distinction, stated in @sec-bg-eval, such a gain reflects genuine discrimination rather than recalibration. As a post-hoc prior correction is a monotone rescaling of a fixed scorer's outputs and cannot move a ranking metric [@saerens2002adjusting_priors]. 
+
+What is meant here by balanced requires a bit of further clarificationcare. C2 reaches a true 50/50 context only on TabPFN v2, whose 10,000-row window is small enough for the available fraud rows to fill half of it. On the models with 48,000 to 50,000-row budgets, which produce the strongest results, the realized fraud share reaches only `r round(100 * c2_share_rng[1])` % to `r round(100 * c2_share_rng[2])` % on four datasets and `r sprintf("%.1f", 100 * c2_share_eucc)` % on eu_cc. The sweep visualised in @fig-rq2-ratio-sweep and further investigated in @sec-app-c2-sweep suggests that pushing the realized ratio higher would have brought little value. On eu_cc and banksim performance degrades at ratios of 0.20 and above, and on paysim the gains past 0.10 are marginal. The effective lever is therefore to include enough fraud tags, on the order of 5 % to 10 % of the context, while avoiding heavy duplication.
+
