@@ -200,3 +200,9 @@ The C1-to-C2 gain is measured on threshold-free ranking metrics. On our interpre
 
 What is meant here by balanced requires a bit of further clarificationcare. C2 reaches a true 50/50 context only on TabPFN v2, whose 10,000-row window is small enough for the available fraud rows to fill half of it. On the models with 48,000 to 50,000-row budgets, which produce the strongest results, the realized fraud share reaches only `r round(100 * c2_share_rng[1])` % to `r round(100 * c2_share_rng[2])` % on four datasets and `r sprintf("%.1f", 100 * c2_share_eucc)` % on eu_cc. The sweep visualised in @fig-rq2-ratio-sweep and further investigated in @sec-app-c2-sweep suggests that pushing the realized ratio higher would have brought little value. On eu_cc and banksim performance degrades at ratios of 0.20 and above, and on paysim the gains past 0.10 are marginal. The effective lever is therefore to include enough fraud tags, on the order of 5 % to 10 % of the context, while avoiding heavy duplication.
 
+## Research question 3: the relevance of Relevance
+
+- primary finding of this study is negative  on: C3 (kNN, natural ratio) is WORSE than C1 on 4/5 datasets, sometimes even with a catastrophic fall (baf is the lone exception — separability floor) 
+  - paysim C3 ~0.10 vs C1 ~0.91; eu_cc C3 0.33 (tabiclv2) / 0.56 (tabpfn_3) vs C1 ~0.82, with huge seed variance (tabiclv2 seed123 = 0.087) [finding: results/runs]
+  - banksim C3 ~0.86 vs ~0.90 (mild); baf/fifar C3 ≈ C1 (separability floor)
+  

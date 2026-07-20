@@ -62,6 +62,7 @@ class TabPFNModel:
         device: str = "cuda",
         seed: int = 42,
         n_estimators: int | None = None,
+        context_limit_override: int | None = None,
     ) -> None:
         if version not in self._VALID_VERSIONS:
             raise ValueError(f"version must be one of {self._VALID_VERSIONS}, got {version!r}")
@@ -71,6 +72,10 @@ class TabPFNModel:
         # Number of ensemble passes. None => package default (8). Reducing it
         # speeds predict ~linearly but changes outputs (kept None/8 until validated).
         self.n_estimators = n_estimators
+        # Raise the fit() guard above the CONTEXT_LIMITS design budget (large-context
+        # C2 extension). Must stay within the checkpoint's own cap (v3: 1M; 2.5/2.6
+        # checkpoints reject beyond 50k/100k regardless of this override).
+        self.context_limit_override = context_limit_override
         self._model = None  # lazy-init on first fit()
 
     @property
@@ -79,6 +84,8 @@ class TabPFNModel:
 
     @property
     def context_limit(self) -> int:
+        if self.context_limit_override is not None:
+            return self.context_limit_override
         return CONTEXT_LIMITS[self.model_key]
 
     def _ensure_model(self) -> None:
@@ -136,15 +143,27 @@ class TabICLModel:
     Model weights are loaded on first fit() and reused on subsequent calls.
     """
 
-    def __init__(self, device: str = "cuda", seed: int = 42, n_estimators: int | None = None) -> None:
+    def __init__(
+        self,
+        device: str = "cuda",
+        seed: int = 42,
+        n_estimators: int | None = None,
+        context_limit_override: int | None = None,
+    ) -> None:
         self.device = device
         self.seed = seed
         # None => package default (8). See TabPFNModel.n_estimators note.
         self.n_estimators = n_estimators
+        # See TabPFNModel.context_limit_override. For TabICL there is no hard
+        # checkpoint cap, but 48k is the pre-training upper bound — beyond it the
+        # model extrapolates.
+        self.context_limit_override = context_limit_override
         self._model = None  # lazy-init on first fit()
 
     @property
     def context_limit(self) -> int:
+        if self.context_limit_override is not None:
+            return self.context_limit_override
         return CONTEXT_LIMITS["tabiclv2"]
 
     def _ensure_model(self) -> None:
@@ -192,20 +211,30 @@ class TabICLModel:
 # ---------------------------------------------------------------------------
 
 def build_ftm(
-    model_key: str, device: str = "cuda", seed: int = 42, n_estimators: int | None = None
+    model_key: str,
+    device: str = "cuda",
+    seed: int = 42,
+    n_estimators: int | None = None,
+    context_limit_override: int | None = None,
 ) -> TabPFNModel | TabICLModel:
     """
     Instantiate an FTM wrapper by key.
 
     Supported keys: "tabpfn_v2", "tabpfn_25", "tabpfn_26", "tabpfn_3", "tabiclv2"
     ``n_estimators`` is the number of ensemble passes (None => package default 8).
+    ``context_limit_override`` raises the fit() guard above the CONTEXT_LIMITS
+    design budget (large-context C2 extension only).
     """
     if model_key in _TABPFN_VERSION_MAP:
         return TabPFNModel(
-            version=_TABPFN_VERSION_MAP[model_key], device=device, seed=seed, n_estimators=n_estimators
+            version=_TABPFN_VERSION_MAP[model_key], device=device, seed=seed,
+            n_estimators=n_estimators, context_limit_override=context_limit_override,
         )
     elif model_key == "tabiclv2":
-        return TabICLModel(device=device, seed=seed, n_estimators=n_estimators)
+        return TabICLModel(
+            device=device, seed=seed, n_estimators=n_estimators,
+            context_limit_override=context_limit_override,
+        )
     else:
         raise ValueError(
             f"Unknown FTM model: {model_key!r}. Supported: {FTM_MODELS}"

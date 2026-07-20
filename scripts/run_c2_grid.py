@@ -13,9 +13,29 @@ ratios added 2026-06-20) × context_size {10k,20k,30k,40k,50k} (5) × FTM
 {tabiclv2, tabpfn_3} (2) × dataset {eu_cc,banksim,paysim} (3) × 3 seeds
 = 9×5×2×3×3 = 810 cells (see RATIOS/CONTEXT_SIZES/MODELS/UNITS below — the
 original docstring said 360, written before the low-ratio points were added).
+
+Large-context extension (2026-07-20): context_size {100k,200k} × a trimmed ratio
+set {0.02,0.05,0.10,0.20} (plateau + one hurting ratio) × same models/units
+= 4×2×2×9 = 144 extra cells, total 954. These sizes exceed the 50k/48k design
+budget in CONTEXT_LIMITS deliberately: the tabpfn_3 checkpoint accepts 1M rows
+(verified 2026-07-06), and tabiclv2 has no hard cap but 48k is its PRE-TRAINING
+upper bound — its 100k/200k cells measure extrapolation and must be flagged as
+such in the appendix. For requests above the budget the clamp is bypassed
+(ctx = min(request, len(train)) — eu_cc caps 200k at its ~228k train set);
+requests ≤ budget keep the exact original clamp so the 810 existing cells'
+semantics are untouched.
+
+n_estimators appendix sweep (2026-07-20): n_est {1,2,4,8,10,12} at the fixed
+plateau recipe (r=0.10, 50k context) over ALL 5 formal datasets ({eu_cc, banksim,
+paysim, baf} × 3 seeds + fifar × seed 42 = 13 units) × 2 models = 156 cells, of
+which the 18 n_est=4 cells on the three grid datasets are the existing r=0.10/50k
+grid cells (identical hash — the hash defaults n_estimators to 4), so 138 are
+net-new. Grand total 1092 unique cells. Audits the settled n_estimators=4 grid
+decision against the package default 8 and brackets it from both sides.
+
 context_size is capped at min(len(train), model context limit); both requested and
-effective are recorded. One model build per (dataset,seed,model), refit per cell.
-Idempotent (config hash -> parquet) -> results/runs_c2grid/.
+effective are recorded. One model build per (dataset,seed,model,n_est), refit per
+cell. Idempotent (config hash -> parquet) -> results/runs_c2grid/.
 
 Usage:
     TABPFN_TOKEN=... uv run python scripts/run_c2_grid.py            # run
@@ -50,14 +70,46 @@ UNITS = {"eu_cc": [42, 123, 7], "banksim": [42, 123, 7], "paysim": [42, 123, 7]}
 MODELS = ["tabiclv2", "tabpfn_3"]
 RATIOS = [0.02, 0.04, 0.05, 0.06, 0.08, 0.10, 0.20, 0.30, 0.40]  # low ratios added 2026-06-20
 CONTEXT_SIZES = [10000, 20000, 30000, 40000, 50000]
+LARGE_RATIOS = [0.02, 0.05, 0.10, 0.20]          # large-context extension 2026-07-20
+LARGE_CONTEXT_SIZES = [100_000, 200_000]
 N_ESTIMATORS = 4
+# n_estimators sweep (2026-07-20): fixed plateau recipe, all 5 formal datasets
+NEST_VALUES = [1, 2, 4, 8, 10, 12]
+NEST_RATIO = 0.10
+NEST_CONTEXT = 50_000
+NEST_UNITS = {"eu_cc": [42, 123, 7], "banksim": [42, 123, 7], "paysim": [42, 123, 7],
+              "baf": [42, 123, 7], "fifar": [42]}
 PREDICT_CHUNK = 16384
 OUT = Path("results/runs_c2grid")
 
 
+def all_units():
+    merged: dict[str, list[int]] = {}
+    for src in (UNITS, NEST_UNITS):
+        for d, seeds in src.items():
+            merged.setdefault(d, [])
+            merged[d] += [s for s in seeds if s not in merged[d]]
+    return merged
+
+
 def cell_configs(dataset, seed, model):
-    return [dict(dataset=dataset, seed=seed, model=model, fraud_ratio=r, context_size=c)
-            for r in RATIOS for c in CONTEXT_SIZES]
+    cells = []
+    if dataset in UNITS and seed in UNITS[dataset]:
+        cells += [dict(dataset=dataset, seed=seed, model=model, fraud_ratio=r, context_size=c)
+                  for r in RATIOS for c in CONTEXT_SIZES]
+        cells += [dict(dataset=dataset, seed=seed, model=model, fraud_ratio=r, context_size=c)
+                  for r in LARGE_RATIOS for c in LARGE_CONTEXT_SIZES]
+    if dataset in NEST_UNITS and seed in NEST_UNITS[dataset]:
+        cells += [dict(dataset=dataset, seed=seed, model=model, fraud_ratio=NEST_RATIO,
+                       context_size=NEST_CONTEXT, n_estimators=v) for v in NEST_VALUES]
+    # the nest n_est=4 cell hashes identically to the grid r=0.10/50k cell — dedupe
+    seen, uniq = set(), []
+    for c in cells:
+        h = cell_hash(c)
+        if h not in seen:
+            seen.add(h)
+            uniq.append(c)
+    return uniq
 
 
 def cell_hash(cfg):
@@ -65,7 +117,7 @@ def cell_hash(cfg):
         "study": "c2_grid", "c2_version": C2_VERSION,
         "dataset": cfg["dataset"], "seed": int(cfg["seed"]), "model": cfg["model"],
         "fraud_ratio": cfg["fraud_ratio"], "context_size": int(cfg["context_size"]),
-        "n_estimators": N_ESTIMATORS,
+        "n_estimators": int(cfg.get("n_estimators", N_ESTIMATORS)),
     }, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()[:12]
 
@@ -81,7 +133,7 @@ def main():
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
 
-    units = [(d, s) for d, seeds in UNITS.items() for s in seeds
+    units = [(d, s) for d, seeds in all_units().items() for s in seeds
              if (args.datasets is None or d in args.datasets)]
     all_cells = [(d, s, m, c) for (d, s) in units for m in MODELS for c in cell_configs(d, s, m)]
     done = done_set()
@@ -113,17 +165,25 @@ def main():
             if not mcells:
                 continue
             limit = CONTEXT_LIMITS[model]
-            print(f"  -- {model}: {len(mcells)} cells (limit={limit}) --", flush=True)
-            mdl = build_ftm(model, device="cuda", seed=seed, n_estimators=N_ESTIMATORS)
-            mdl.ensure_loaded()
-            for cfg in mcells:
+            for n_est in sorted({c.get("n_estimators", N_ESTIMATORS) for c in mcells}):
+              ncells = [c for c in mcells if c.get("n_estimators", N_ESTIMATORS) == n_est]
+              print(f"  -- {model} n_est={n_est}: {len(ncells)} cells (limit={limit}) --", flush=True)
+              mdl = build_ftm(model, device="cuda", seed=seed, n_estimators=n_est,
+                              context_limit_override=max(LARGE_CONTEXT_SIZES))
+              mdl.ensure_loaded()
+              for cfg in ncells:
                 rid = cell_hash(cfg)
                 out_path = OUT / f"{rid}.parquet"
                 if out_path.exists():
                     continue
                 ratio = cfg["fraud_ratio"]
                 ctx_req = cfg["context_size"]
-                ctx = min(ctx_req, len(ytr), limit)  # effective context size
+                # only the large-context extension sizes bypass the design-budget
+                # clamp; a 50k request on tabiclv2 still clamps to 48k exactly as
+                # the original grid cells did (keeps the nest sweep comparable to
+                # its reused n_est=4 grid cells)
+                ctx = (min(ctx_req, len(ytr)) if ctx_req in LARGE_CONTEXT_SIZES
+                       else min(ctx_req, len(ytr), limit))
                 rng = np.random.default_rng([seed, int(round(ratio * 1000)), ctx_req])
                 nf = int(round(ratio * ctx))
                 nl = ctx - nf
@@ -149,7 +209,7 @@ def main():
                     "run_id": rid, "study": "c2_grid", "c2_version": C2_VERSION,
                     "dataset": dataset, "seed": int(seed), "model": model,
                     "fraud_ratio": ratio, "context_size_req": int(ctx_req),
-                    "context_size_eff": int(ctx), "n_estimators": N_ESTIMATORS,
+                    "context_size_eff": int(ctx), "n_estimators": int(n_est),
                     "pr_auc": mm["pr_auc"], "recall_at_1fpr": mm["recall_at_1fpr"],
                     "recall_at_5fpr": mm["recall_at_5fpr"], "roc_auc": mm["roc_auc"], "f1": mm["f1"],
                     "realized_fraud_ratio": float(int(np.sum(ytr[idx])) / len(idx)),
@@ -161,7 +221,7 @@ def main():
                 }
                 pd.DataFrame([row]).to_parquet(out_path, index=False)
                 n_run += 1
-                print(f"  [{n_run}/{len(pending)}] {dataset} s{seed} {model} r{ratio} "
+                print(f"  [{n_run}/{len(pending)}] {dataset} s{seed} {model} ne{n_est} r{ratio} "
                       f"ctx{ctx_req//1000}k(eff{ctx//1000}k): PR-AUC={mm['pr_auc']:.4f} "
                       f"dup={nf/max(nfu,1):.1f}x ({fit_s+pred_s:.0f}s)", flush=True)
     print("\nAll done.")
