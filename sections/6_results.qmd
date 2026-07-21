@@ -200,9 +200,122 @@ The C1-to-C2 gain is measured on threshold-free ranking metrics. On our interpre
 
 What is meant here by balanced requires a bit of further clarificationcare. C2 reaches a true 50/50 context only on TabPFN v2, whose 10,000-row window is small enough for the available fraud rows to fill half of it. On the models with 48,000 to 50,000-row budgets, which produce the strongest results, the realized fraud share reaches only `r round(100 * c2_share_rng[1])` % to `r round(100 * c2_share_rng[2])` % on four datasets and `r sprintf("%.1f", 100 * c2_share_eucc)` % on eu_cc. The sweep visualised in @fig-rq2-ratio-sweep and further investigated in @sec-app-c2-sweep suggests that pushing the realized ratio higher would have brought little value. On eu_cc and banksim performance degrades at ratios of 0.20 and above, and on paysim the gains past 0.10 are marginal. The effective lever is therefore to include enough fraud tags, on the order of 5 % to 10 % of the context, while avoiding heavy duplication.
 
-## Research question 3: the relevance of Relevance
+## Research question 3: the relevance of Relevance {#sec-results-rq3}
 
-- primary finding of this study is negative  on: C3 (kNN, natural ratio) is WORSE than C1 on 4/5 datasets, sometimes even with a catastrophic fall (baf is the lone exception — separability floor) 
-  - paysim C3 ~0.10 vs C1 ~0.91; eu_cc C3 0.33 (tabiclv2) / 0.56 (tabpfn_3) vs C1 ~0.82, with huge seed variance (tabiclv2 seed123 = 0.087) [finding: results/runs]
-  - banksim C3 ~0.86 vs ~0.90 (mild); baf/fifar C3 ≈ C1 (separability floor)
-  
+```{r}
+#| label: rq3-setup
+#| include: false
+
+rq3_md_lv <- c("tabpfn_3", "tabiclv2")
+rq3_md_lab <- c("TabPFN v3", "TabICLv2")
+rq3_cols <- c("TabPFN v3" = "#eb6834", "TabICLv2" = "#4a3aa7")
+rq3_shapes <- c("TabPFN v3" = 16, "TabICLv2" = 17)
+
+## C3 vs C1 on matched seeds. Needs the C3-only grouping columns, which
+## results-setup does not carry; pre-Phase-3 C1/C2 parquets lack them, so
+## select per file and let bind_rows() NA-fill.
+rq3_cols_sel <- c("dataset", "model", "condition", "seed", "pipeline_version",
+                  "n_estimators", "pr_auc", "n_groups", "group_silhouette")
+rq3_cmp <- list.files("results/runs", pattern = "\\.parquet$",
+                      full.names = TRUE) |>
+  lapply(\(f) { d <- read_parquet(f)
+                d[, intersect(rq3_cols_sel, names(d)), drop = FALSE] }) |>
+  bind_rows() |>
+  filter(pipeline_version == 4, n_estimators == 4,
+         dataset %in% formal_datasets, model %in% rq3_md_lv,
+         condition %in% c("C1", "C3"))
+rq3_c3 <- rq3_cmp |> filter(condition == "C3")
+rq3_pairs <- rq3_cmp |>
+  semi_join(distinct(rq3_c3, dataset, model, seed),
+            by = c("dataset", "model", "seed")) |>
+  select(dataset, model, seed, condition, pr_auc) |>
+  tidyr::pivot_wider(names_from = condition, values_from = pr_auc) |>
+  mutate(delta = C3 - C1)
+rq3_delta <- rq3_pairs |>
+  group_by(dataset, model) |>
+  summarise(d = mean(delta), .groups = "drop")
+rq3_d_of <- \(ds, m, dg = 2) sprintf(paste0("%+.", dg, "f"),
+  rq3_delta$d[rq3_delta$dataset == ds & rq3_delta$model == m])
+rq3_c3_of <- \(ds, f) sprintf("%.2f", f(rq3_c3$pr_auc[rq3_c3$dataset == ds]))
+
+## silhouette-chosen grouping under C3
+rq3_sil <- rq3_c3 |>
+  group_by(dataset) |>
+  summarise(G = round(mean(n_groups)),
+            sil = mean(group_silhouette), .groups = "drop")
+rq3_G_of <- \(ds) rq3_sil$G[rq3_sil$dataset == ds]
+rq3_sil_of <- \(ds) sprintf("%.2f", rq3_sil$sil[rq3_sil$dataset == ds])
+
+## natural-ratio arms of the relevance ablation (G = 32, 50k context)
+rq3_abl_nat <- list.files("results/runs_ablation", pattern = "\\.parquet$",
+                          full.names = TRUE) |>
+  lapply(read_parquet) |>
+  bind_rows() |>
+  filter(ratio_spec %in% "natural", G == 32) |>
+  group_by(dataset, arm) |>
+  summarise(pr = mean(pr_auc), .groups = "drop")
+rq3_abl_of <- \(ds, a) sprintf("%.3f",
+  rq3_abl_nat$pr[rq3_abl_nat$dataset == ds & rq3_abl_nat$arm == a])
+
+## design-space sweep: PR-AUC and legit score by forced group count
+rq3_rapds <- list.files("results/runs_rapds", pattern = "\\.parquet$",
+                        full.names = TRUE) |>
+  lapply(read_parquet) |>
+  bind_rows()
+
+rq3_g <- rq3_rapds |>
+  group_by(dataset, model, granularity) |>
+  summarise(`PR-AUC` = mean(pr_auc),
+            `Mean legitimate score` = mean(legit_score), .groups = "drop") |>
+  tidyr::pivot_longer(c(`PR-AUC`, `Mean legitimate score`),
+                      names_to = "measure", values_to = "value") |>
+  mutate(dataset = factor(dataset, c("eu_cc", "banksim", "paysim"),
+                          c("EU CC", "BankSim", "PaySim")),
+         model = factor(model, rq3_md_lv, rq3_md_lab),
+         measure = factor(measure, c("PR-AUC", "Mean legitimate score")))
+         
+rq3_refs <- v4 |>
+  filter(condition %in% c("C1", "C2"), model %in% rq3_md_lv,
+         seed %in% c(7, 42, 123),
+         dataset %in% c("eu_cc", "banksim", "paysim")) |>
+  group_by(dataset, condition) |>
+  summarise(pr = mean(pr_auc), .groups = "drop") |>
+  mutate(dataset = factor(dataset, c("eu_cc", "banksim", "paysim"),
+                          c("EU CC", "BankSim", "PaySim")),
+         measure = factor("PR-AUC", c("PR-AUC", "Mean legitimate score")))
+```
+
+The primary finding to the third research question is negative. Filling the context by kNN retrieval at the natural fraud ratio (C3) scores worse than the random context (C1) on four of the five datasets, sometimes with a catastrophic fall on the performance. The mean PR-AUC delta is for TabPFN v3  `r rq3_d_of("paysim", "tabpfn_3")` on paysim and `r rq3_d_of("eu_cc", "tabpfn_3")` on eu_cc, and respectively for TabICL v2 `r rq3_d_of("paysim", "tabiclv2")` and `r rq3_d_of("eu_cc", "tabiclv2")`. The banksim drop is mild for TabPFN v3 `r rq3_d_of("banksim", "tabpfn_3")` and for TabICL 2 `r rq3_d_of("banksim", "tabiclv2")`, and the fifar contrast of `r rq3_d_of("fifar", "tabpfn_3")` and `r rq3_d_of("fifar", "tabiclv2")` rests on the single pre-defined split. All contrasts in this section use only the same seeded runs experiment C3 ran. Experiment C1 carried ten seeds for these two models shown on @fig-rq1-c1-prauc, so unmatched means would mix the seed sets. On baf the outcome is a tie with deltas of `r rq3_d_of("baf", "tabpfn_3", 3)` and `r rq3_d_of("baf", "tabiclv2", 3)`.
+
+The per-seed spread is itself a finding. On eu_cc the worst seed falls to a PR-AUC of `r rq3_c3_of("eu_cc", min)` while the best stays close to C1 at `r rq3_c3_of("eu_cc", max)`. On paysim every seed collapses, from `r rq3_c3_of("paysim", max)` down to `r rq3_c3_of("paysim", min)`.
+
+A drop under C3 does not by itself isolate relevance, because the realized fraud share of a retrieved context drifts with the local neighbourhood and the silhouette criterion chooses the grouping (@sec-methods-conditions). The ratio-matched relevance ablation of @sec-app-relevance-ablation therefore carries the verdict on RQ3 it holds the grouping fixed at G=32 and enforces the fraud ratio, so only the selection mechanism varies. 
+
+The grouping the silhouette criterion picks under C3 is coarse: on average `r rq3_G_of("banksim")` groups on banksim, `r rq3_G_of("paysim")` on paysim and `r rq3_G_of("fifar")` on fifar, `r rq3_G_of("eu_cc")` on eu_cc and `r rq3_G_of("baf")` on baf. Cluster quality is weak outside banksim, with mean silhouette scores of `r rq3_sil_of("banksim")` on banksim against `r rq3_sil_of("paysim")` on paysim, `r rq3_sil_of("eu_cc")` on eu_cc, `r rq3_sil_of("fifar")` on fifar and `r rq3_sil_of("baf")` on baf. Coarseness alone does not explain the loss, however. We can see in  @fig-rq3-granularity that forcing finer groupings in the design-space sweep recovers part of it but asymptotes below C2 on all six dataset and model pairs.
+
+
+```{r}
+#| label: fig-rq3-granularity
+#| fig-cap: "The Relevance sweep under specified group counts, means pooled over metrics, ratios and seeds. Top row has PR-AUC recovers with finer G on every dataset but stays below the matched-seed C2 mean (dashed) on all six dataset and model pairs on BankSim the C1 and C2 references coincide. Bottom row has the mean predicted score on legitimate (non-fraud) rows falls with finer G everywhere, so retrieved-context legit inflation vanishes at fine G on EU CC and BankSim while PaySim remains collapsed, ruling that mechanism out as the PaySim explanation."
+#| fig-width: 6.5
+#| fig-height: 4.6
+#| warning: false
+
+ggplot(rq3_g, aes(granularity, value, colour = model, shape = model)) +
+  geom_hline(data = rq3_refs, aes(yintercept = pr, linetype = condition),
+             colour = "#52514e", linewidth = 0.4) +
+  geom_line(aes(group = model), linewidth = 0.6) +
+  geom_point(size = 1.8) +
+  facet_grid(measure ~ dataset, scales = "free_y", switch = "y") +
+  scale_colour_manual(values = rq3_cols, name = NULL) +
+  scale_shape_manual(values = rq3_shapes, name = NULL) +
+  scale_linetype_manual(values = c(C1 = "dotted", C2 = "dashed"), name = NULL) +
+  scale_x_continuous(trans = "log2", breaks = c(8, 16, 32, 64)) +
+  labs(x = "Forced group count G (log scale)", y = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank(),
+        strip.placement = "outside")
+```
+
+The ablation and the design-space sweep cover eu_cc, banksim and paysim only, so for baf and fifar the evidence is limited to the contrasts of the main experiments. The per-dataset answer to RQ3 is thus negative but graded: retrieval-relevance is strongly harmful on paysim, mildly harmful on banksim, neutral on eu_cc once the ratio and the grouping are controlled, a tie at the floor on baf, and directional only on fifar. This is a regime and domain transfer gap rather than a general refutation of retrieval. Frozen kNN retrieval helps on balanced general tabular data [@thomas2024localpfn_retrieval_finetuning], while under fraud-grade imbalance our result confirms the strong-random-baseline prior [@feuer2023scaling_tabpfn] and that naïve distance-based context construction methods can affect performance [@pham2026aware].
+
