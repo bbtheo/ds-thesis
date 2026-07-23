@@ -11,7 +11,7 @@ In this chapter we present the results of the tests that were outlined in @sec-m
 #| include: false
 
 runs <- list.files("results/runs", pattern = "\\.parquet$", full.names = TRUE) |>
-  lapply(\(f) select(read_parquet(f), dataset, model, condition, seed,
+  lapply(\(f) select(nanoparquet::read_parquet(f), dataset, model, condition, seed,
                      pipeline_version, pr_auc, n_train,
                      context_size, context_fraud_n)) |>
   bind_rows()
@@ -76,7 +76,7 @@ c2_share_rng <- range(c2_share$s[c2_share$dataset != "eu_cc"])
 ## C2 fraud-ratio sweep on eu_cc (50k context) and the XGBoost reference
 c2grid <- list.files("results/runs_c2grid", pattern = "\\.parquet$",
                      full.names = TRUE) |>
-  lapply(read_parquet) |>
+  lapply(nanoparquet::read_parquet) |>
   bind_rows()
 sweep_datasets <- c("eu_cc", "banksim", "paysim","baf")
 sweep_labels <- c("EU CC", "BankSim", "PaySim", "BAF")
@@ -218,7 +218,7 @@ rq3_cols_sel <- c("dataset", "model", "condition", "seed", "pipeline_version",
                   "n_estimators", "pr_auc", "n_groups", "group_silhouette")
 rq3_cmp <- list.files("results/runs", pattern = "\\.parquet$",
                       full.names = TRUE) |>
-  lapply(\(f) { d <- read_parquet(f)
+  lapply(\(f) { d <- nanoparquet::read_parquet(f)
                 d[, intersect(rq3_cols_sel, names(d)), drop = FALSE] }) |>
   bind_rows() |>
   filter(pipeline_version == 4, n_estimators == 4,
@@ -249,7 +249,7 @@ rq3_sil_of <- \(ds) sprintf("%.2f", rq3_sil$sil[rq3_sil$dataset == ds])
 ## natural-ratio arms of the relevance ablation (G = 32, 50k context)
 rq3_abl_nat <- list.files("results/runs_ablation", pattern = "\\.parquet$",
                           full.names = TRUE) |>
-  lapply(read_parquet) |>
+  lapply(nanoparquet::read_parquet) |>
   bind_rows() |>
   filter(ratio_spec %in% "natural", G == 32) |>
   group_by(dataset, arm) |>
@@ -260,8 +260,9 @@ rq3_abl_of <- \(ds, a) sprintf("%.3f",
 ## design-space sweep: PR-AUC and legit score by forced group count
 rq3_rapds <- list.files("results/runs_rapds", pattern = "\\.parquet$",
                         full.names = TRUE) |>
-  lapply(read_parquet) |>
-  bind_rows()
+  lapply(nanoparquet::read_parquet) |>
+  bind_rows() |>
+  filter(ds_version == 1, n_estimators == 4)
 
 rq3_g <- rq3_rapds |>
   group_by(dataset, model, granularity) |>
@@ -291,12 +292,12 @@ The per-seed spread is itself a finding. On eu_cc the worst seed falls to a PR-A
 
 A drop under C3 does not by itself isolate relevance, because the realized fraud share of a retrieved context drifts with the local neighbourhood and the silhouette criterion chooses the grouping (@sec-methods-conditions). The ratio-matched relevance ablation of @sec-app-relevance-ablation therefore carries the verdict on RQ3 it holds the grouping fixed at G=32 and enforces the fraud ratio, so only the selection mechanism varies. 
 
-The grouping the silhouette criterion picks under C3 is coarse: on average `r rq3_G_of("banksim")` groups on banksim, `r rq3_G_of("paysim")` on paysim and `r rq3_G_of("fifar")` on fifar, `r rq3_G_of("eu_cc")` on eu_cc and `r rq3_G_of("baf")` on baf. Cluster quality is weak outside banksim, with mean silhouette scores of `r rq3_sil_of("banksim")` on banksim against `r rq3_sil_of("paysim")` on paysim, `r rq3_sil_of("eu_cc")` on eu_cc, `r rq3_sil_of("fifar")` on fifar and `r rq3_sil_of("baf")` on baf. Coarseness alone does not explain the loss, however. We can see in  @fig-rq3-granularity that forcing finer groupings in the design-space sweep recovers part of it but asymptotes below C2 on all six dataset and model pairs.
+The grouping the silhouette criterion picks under C3 is coarse: on average `r rq3_G_of("banksim")` groups on banksim, `r rq3_G_of("paysim")` on paysim and `r rq3_G_of("fifar")` on fifar, `r rq3_G_of("eu_cc")` on eu_cc and `r rq3_G_of("baf")` on baf. Cluster quality is weak outside banksim, with mean silhouette scores of `r rq3_sil_of("banksim")` on banksim against `r rq3_sil_of("paysim")` on paysim, `r rq3_sil_of("eu_cc")` on eu_cc, `r rq3_sil_of("fifar")` on fifar and `r rq3_sil_of("baf")` on baf. Coarseness alone does not explain the loss, however. We can see in @fig-rq3-granularity that forcing finer groupings in the design-space sweep recovers part of it but asymptotes below C2 on all six dataset and model pairs; @sec-results-rq4 quantifies the sweep's outcomes.
 
 
 ```{r}
 #| label: fig-rq3-granularity
-#| fig-cap: "The Relevance sweep under specified group counts, means pooled over metrics, ratios and seeds. Top row has PR-AUC recovers with finer G on every dataset but stays below the matched-seed C2 mean (dashed) on all six dataset and model pairs on BankSim the C1 and C2 references coincide. Bottom row has the mean predicted score on legitimate (non-fraud) rows falls with finer G everywhere, so retrieved-context legit inflation vanishes at fine G on EU CC and BankSim while PaySim remains collapsed, ruling that mechanism out as the PaySim explanation."
+#| fig-cap: "The Relevance sweep under specified group counts, means pooled over metrics, ratios and seeds. Top row has PR-AUC recovering with finer G on every dataset but staying below the matched-seed C2 mean (dashed) on all six dataset and model pairs; on BankSim the C1 and C2 references coincide. Bottom row has the mean predicted score on legitimate (non-fraud) rows falling with finer G everywhere, so retrieved-context legit inflation vanishes at fine G on EU CC and BankSim while PaySim remains collapsed, ruling that mechanism out as the PaySim explanation."
 #| fig-width: 6.5
 #| fig-height: 4.6
 #| warning: false
@@ -319,3 +320,150 @@ ggplot(rq3_g, aes(granularity, value, colour = model, shape = model)) +
 
 The ablation and the design-space sweep cover eu_cc, banksim and paysim only, so for baf and fifar the evidence is limited to the contrasts of the main experiments. The per-dataset answer to RQ3 is thus negative but graded: retrieval-relevance is strongly harmful on paysim, mildly harmful on banksim, neutral on eu_cc once the ratio and the grouping are controlled, a tie at the floor on baf, and directional only on fifar. This is a regime and domain transfer gap rather than a general refutation of retrieval. Frozen kNN retrieval helps on balanced general tabular data [@thomas2024localpfn_retrieval_finetuning], while under fraud-grade imbalance our result confirms the strong-random-baseline prior [@feuer2023scaling_tabpfn] and that naïve distance-based context construction methods can affect performance [@pham2026aware].
 
+## Research question 4: efficacy of the full RAP-pipeline {#sec-results-rq4}
+
+```{r}
+#| label: rq4-setup
+#| include: false
+
+## seed-matched condition pivot; needs fraud_ratio, which results-setup drops
+rq4_sel <- c("dataset", "model", "condition", "seed", "pipeline_version",
+             "n_estimators", "pr_auc", "recall_at_1fpr", "recall_at_5fpr",
+             "fraud_ratio")
+rq4_all <- list.files("results/runs", pattern = "\\.parquet$",
+                      full.names = TRUE) |>
+  lapply(\(f) { d <- nanoparquet::read_parquet(f)
+                d[, intersect(rq4_sel, names(d)), drop = FALSE] }) |>
+  bind_rows() |>
+  filter(pipeline_version == 4, n_estimators == 4,
+         dataset %in% formal_datasets, model %in% rq3_md_lv)
+rq4_cmp <- rq4_all |>
+  semi_join(rq4_all |> filter(condition == "C4") |> distinct(dataset, seed),
+            by = c("dataset", "seed"))
+rq4_base <- rq4_cmp |> filter(condition %in% c("C1", "C2", "C3")) |>
+  group_by(dataset, condition, model) |>
+  summarise(pr = mean(pr_auc), .groups = "drop") |>
+  group_by(dataset, condition) |>
+  summarise(pr = max(pr), .groups = "drop")
+rq4_c4b <- rq4_cmp |> filter(condition == "C4") |>
+  group_by(dataset, model, fraud_ratio) |>
+  summarise(pr = mean(pr_auc), .groups = "drop") |>
+  group_by(dataset) |>
+  summarise(pr = max(pr), .groups = "drop") |>
+  mutate(condition = "C4best")
+rq4_piv <- bind_rows(rq4_base, rq4_c4b) |>
+  tidyr::pivot_wider(names_from = condition, values_from = pr) |>
+  mutate(top = pmax(C1, C2, C3, C4best),
+         winner = case_when(top == C2 ~ "C2", top == C1 ~ "C1",
+                            top == C3 ~ "C3", TRUE ~ "C4"),
+         best = if_else(winner %in% c("C1", "C2") & abs(C2 - C1) < 0.005,
+                        "C2 ≈ C1", winner),
+         dataset = factor(dataset, formal_datasets,
+                          c("EU CC", "BankSim", "PaySim", "FiFAR", "BAF"))) |>
+  arrange(dataset)
+rq4_fmt <- \(x) ifelse(x < 0.095, sprintf("%.3f", x), sprintf("%.2f", x))
+rq4_piv_of <- \(ds, col) rq4_fmt(rq4_piv[[col]][rq4_piv$dataset == ds])
+rq4_def_of <- \(ds) rq4_fmt(rq4_piv$C2[rq4_piv$dataset == ds] -
+                            rq4_piv$C4best[rq4_piv$dataset == ds])
+
+## design-space sweep aggregates (reuses rq3_rapds from rq3-setup)
+rq4_gc <- rq3_rapds |> group_by(dataset, granularity) |>
+  summarise(pr = mean(pr_auc), .groups = "drop")
+rq4_g_of <- \(ds, g) sprintf("%.2f",
+  rq4_gc$pr[rq4_gc$dataset == ds & rq4_gc$granularity == g])
+rq4_met <- rq3_rapds |> group_by(dataset, metric) |>
+  summarise(pr = mean(pr_auc), .groups = "drop")
+rq4_met_of <- \(ds, m) sprintf("%.2f",
+  rq4_met$pr[rq4_met$dataset == ds & rq4_met$metric == m])
+rq4_best <- rq3_rapds |>
+  group_by(dataset, model, metric, granularity, fraud_ratio) |>
+  summarise(pr = mean(pr_auc), .groups = "drop") |>
+  group_by(dataset) |> slice_max(pr, n = 1, with_ties = FALSE) |> ungroup()
+rq4_best_of <- \(ds) sprintf("%.3f", rq4_best$pr[rq4_best$dataset == ds])
+
+## per-model C2 means, for the same-model reading of the best swept cell
+rq4_c2m <- rq4_cmp |> filter(condition == "C2") |>
+  group_by(dataset, model) |>
+  summarise(pr = mean(pr_auc), .groups = "drop")
+rq4_c2m_of <- \(ds, m) sprintf("%.3f",
+  rq4_c2m$pr[rq4_c2m$dataset == ds & rq4_c2m$model == m])
+
+## per-model C4 ranking fragility
+rq4_frag <- rq4_cmp |> filter(condition == "C4") |>
+  group_by(model) |>
+  summarise(n = n(), zero1 = sum(recall_at_1fpr == 0), .groups = "drop")
+rq4_frag_of <- \(m, col) rq4_frag[[col]][rq4_frag$model == m]
+
+## guard: the C4-below-C2 conclusion must also hold on both recall metrics,
+## as claimed in prose; a future data change that breaks it fails the render
+for (rq4_m in c("recall_at_1fpr")) {
+  rq4_c2r <- rq4_cmp |> filter(condition == "C2") |>
+    group_by(dataset, model) |>
+    summarise(v = mean(.data[[rq4_m]]), .groups = "drop") |>
+    group_by(dataset) |> summarise(v = max(v), .groups = "drop")
+  rq4_c4r <- rq4_cmp |> filter(condition == "C4") |>
+    group_by(dataset, model, fraud_ratio) |>
+    summarise(v = mean(.data[[rq4_m]]), .groups = "drop") |>
+    group_by(dataset) |> summarise(v = max(v), .groups = "drop")
+  stopifnot(all(rq4_c4r$v < rq4_c2r$v))
+}
+
+## heatmap cells: means over seeds and both metrics
+rq4_hm <- rq3_rapds |>
+  group_by(dataset, model, granularity, fraud_ratio) |>
+  summarise(pr = mean(pr_auc), .groups = "drop") |>
+  mutate(dataset = factor(dataset, c("eu_cc", "banksim", "paysim"),
+                          c("EU CC", "BankSim", "PaySim")),
+         model = factor(model, rq3_md_lv, rq3_md_lab),
+         G = factor(granularity, c(8, 16, 32, 64)),
+         ratio = factor(fraud_ratio, c(0.05, 0.1, 0.2, 0.3, 0.5)))
+```
+
+Research question 4 asks whether the full RAP pipeline (C4), which combines kNN retrieval with an enforced in-context fraud ratio, improves on what rebalancing alone could achieve. In short,it does not. Even with its fraud ratio tuned per dataset, C4 stays below the stratified random context C2 on every dataset, with a decline in performance that ranges from `r rq4_def_of("EU CC")` PR-AUC on eu_cc to `r rq4_def_of("PaySim")` on paysim. The full changes in changes performance can be seen in @tbl-rq4-pivot.
+
+```{r}
+#| label: tbl-rq4-pivot
+#| tbl-cap: "Seed-matched PR-AUC by context-construction condition. Each value is the better of TabPFN v3 and TabICLv2, averaged over the seeds C4 ran; the C4 column takes the best swept fraud ratio per dataset. This selection favours C4, which still loses to C2 everywhere. FiFAR rests on its single split."
+
+rq4_piv |>
+  mutate(across(c(C1, C3, C4best), \(x) sprintf("%.3f", x)),
+         C2 = sprintf("**%.3f**", C2)) |>
+  select(dataset, C1, C2, C3, C4best, best) |>
+  gt() |>
+  fmt_markdown(columns = C2) |>
+  cols_label(dataset = "Dataset", C4best = "C4 (best ratio)",
+             best = "Best strategy") |>
+  cols_align("left", columns = dataset) |>
+  cols_align("right", columns = c(C1, C2, C3, C4best)) |>
+  cols_align("center", columns = best)
+```
+
+The deployed pipeline is partly held back by its grouping. As previously @sec-results-rq3 showed, the automatic silhouette choice picks too few groups, so retrieval concentrates around a nearly global centroid. The design-space sweep of @sec-methods-grid supplies the missing information by forcing the group count and sweeping the fraud ratio and the distance metric on the three separable datasets. @fig-rq4-sweep-heatmap maps the full space. We can see that both models perform similarly, so the baheviour is not model specific.
+
+```{r}
+#| label: fig-rq4-sweep-heatmap
+#| fig-cap: "Seed-mean PR-AUC over the RAP design space. Forced group count $G$ against the enforced fraud ratio, models as rows and datasets as columns. Cells pool three seeds and both distance metrics on a shared 0 to 1 fill scale. No plotted cell reaches its dataset's C2 mean; the one metric-resolved cell that comes within the tie band of C2 (TabICLv2 with cosine on EU CC) is discussed in the text."
+#| fig-width: 6.5
+#| fig-height: 4.4
+#| warning: false
+
+ggplot(rq4_hm, aes(G, ratio, fill = pr)) +
+  geom_tile(colour = "#fcfcfb", linewidth = 0.6) +
+  geom_text(aes(label = sub("^0\\.", ".", sprintf("%.2f", pr)),
+                colour = pr > 0.55), size = 2.4, show.legend = FALSE) +
+  facet_grid(model ~ dataset) +
+  scale_fill_gradient(low = "#cde2fb", high = "#0d366b", name = "PR-AUC",
+                      limits = c(0, 1)) +
+  scale_colour_manual(values = c(`TRUE` = "#fcfcfb", `FALSE` = "#0b0b0b")) +
+  labs(x = "Forced group count G", y = "Enforced fraud ratio") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid = element_blank(),
+        legend.key.width = unit(1.4, "cm"),
+        legend.key.height = unit(0.3, "cm"))
+```
+
+@sec-results-rq3 already established that finer groupings recover part of the loss but asymptote below C2, the sweep quantifies the outcome. On banksim the pooled mean rises from `r rq4_g_of("banksim", 8)` at $G = 8$ to `r rq4_g_of("banksim", 64)` at $G = 64$ against a C2 mean of `r rq4_piv_of("BankSim", "C2")`. On eu_cc the recovery peaks at `r rq4_g_of("eu_cc", 32)` at $G = 32$ against `r rq4_piv_of("EU CC", "C2")`. On paysim the collapse persists at every grouping, from `r rq4_g_of("paysim", 8)` to `r rq4_g_of("paysim", 64)` against `r rq4_piv_of("PaySim", "C2")`. Across the sweep, cosine distance beats euclidean on banksim (`r rq4_met_of("banksim", "cosine")` against `r rq4_met_of("banksim", "euclidean")`) and eu_cc (`r rq4_met_of("eu_cc", "cosine")` against `r rq4_met_of("eu_cc", "euclidean")`) and sits within the tie band on paysim, with euclidean nominally ahead (`r rq4_met_of("paysim", "euclidean")` against `r rq4_met_of("paysim", "cosine")`). This settles the open metric choice in favour of cosine. Eventhough, the better metric still loses to C2.
+
+Even the best single configuration approaches C2 on one dataset only. The strongest cell is TabICLv2 with cosine retrieval in every case: $G = 64$ at a ratio of 0.05 reaches `r rq4_best_of("eu_cc")` on eu_cc, within the tie band of its C2 mean of `r rq4_piv_of("EU CC", "C2")`, and `r rq4_best_of("banksim")` on banksim against `r rq4_piv_of("BankSim", "C2")`, while paysim peaks at `r rq4_best_of("paysim")` ($G = 16$, ratio 0.50) far below `r rq4_piv_of("PaySim", "C2")`. The winning configurations share a pattern: fine groupings, cosine distance and, on the two near-separable datasets, the lowest swept ratio.
+
+Two further checks sharpen the verdict. The better-of-two pivot hides a model split: under C4, TabPFN v3 scores a Recall at 1% FPR of exactly zero on `r rq4_frag_of("tabpfn_3", "zero1")` of its `r rq4_frag_of("tabpfn_3", "n")` runs, against none of TabICLv2's `r rq4_frag_of("tabiclv2", "n")`, so part of the collapse behind the C4 cells is a model-specific ranking fragility rather than a property of retrieval as such. The conclusion is also not metric-specific: the best C4 stays below C2 on every dataset on Recall at 1% FPR and Recall at 5% FPR as well. The answer to RQ4 is therefore negative. Ratio tuning on top of retrieval does not rescue RAP, and no swept configuration justifies retrieval over plain stratified balancing in the tested datasets.

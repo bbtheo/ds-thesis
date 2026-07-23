@@ -185,6 +185,7 @@ GBDTs run under C1 only — trained on full training set (no context limit). Thi
 **5 FTMs** (tabpfn_v2, tabpfn_25, tabpfn_26, tabpfn_3, tabiclv2). The v3 license was accepted 2026-06-14; `tabpfn_3` is in `run_pending_c1c2.py` `FTM_MODELS`. The grid is fully run.
 
 - 16 dataset-seed units (5 datasets × 3 seeds + FiFAR × 1 seed)
+- **10-seed CI extension (completed 2026-07-19):** C1/C2 × {tabpfn_3, tabiclv2} × all 5 formal datasets (fifar included) carry 10 seeds (0–7, 42, 123) in `results/runs`; every other model/condition stays on the formal seeds ({7, 42, 123}; fifar seed 42 only for C3/C4). Any comparison against C3/C4 must restrict C1/C2 to the matched seeds, or it silently averages in the 7 extra replicates (the results-chapter pivots do this).
 - FTM core: 5 models × 4 conditions × 16 = 320
 - GBDT core: 2 models × 1 condition × 16 = 32
 - C4 fraud ratio sweep: 5 FTMs × 5 ratios × 16 = 400 (the C4 cell in "FTM core" is the default-ratio point; the sweep enumerates all 5 ratios, so the default ratio is shared, not additive — net new C4 runs are 5 × 4 × 16 = 320)
