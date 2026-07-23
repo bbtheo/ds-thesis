@@ -80,19 +80,20 @@ Only the distinct observed score values yield distinct operating points, so the 
 The precision-recall curve is the set of points $\bigl(Rec(t_k), \mathrm{Prec}_{\pi}(t_k)\bigr)$ with the points defined from @eq-rec and @eq-prec. The area under this curve (AUC-PR) is, in idealised form, the integral of precision over recall. [@davis2006relationship_pr_roc]
 
 $$
-\mathrm{AUC\text{-}PR}_{\pi} = \int_{0}^{1} \mathrm{Prec}_{\pi}(r) \, \mathrm{d}r,
+\mathrm{AUC\text{-}PR}_{\pi} = \int_{0}^{1} \mathrm{Prec}_{\pi}(r) \, \mathrm{d}r
 $$
 which we estimate by average precision, the right-continuous step-sum over the empirical operating points ( assuming $\mathrm{Rec}(0) = 0$):
 
 $$
-\mathrm{AP}_{\pi}
-  = \sum_{k=1}^{K} \bigl( \mathrm{Rec}(t_k)-\mathrm{Rec}(t_{k-1}) \bigr) \mathrm{Prec}_{\pi}(t_k).
+\mathrm{AP}_{\pi} = \sum_{k=1}^{K} \bigl( \mathrm{Rec}(t_k)-\mathrm{Rec}(t_{k-1}) \bigr) \mathrm{Prec}_{\pi}(t_k)
 $${#eq-ap}
 
 $\mathrm{AP}$ weights each precision value by the recall gained at that threshold linear interpolation between PR points is deliberately not used, as the estimate is optimistically biased [@davis2006relationship_pr_roc].
 
 ## The experimental grid {#sec-methods-grid}
 
-The full design crosses the datasets of @sec-data-datasets with seeds, models and conditions. THis means that the datasets (excluding fifar  which is run only with one seed,) are run with multiple random seeds. The state of the art models are run with ten different seeds and the rest are run with three seeds. The C1 and C2 run on all five TFMs, while C3 and C4 run only on TabPFN v3 and TabICLv2, as stated in @sec-methods-rap. Together with the GBDT baselines this core grid holds 460 runs. On fifar the split stays fixed across these seeds, so the seed variation there reflects only the random context draws.
+The full design consists of running the datasets of @sec-data-datasets with different seeds, models and conditions. This means that the datasets (excluding fifar, which is run with one seed) are run with multiple random seeds. The state of the art models are run with ten different seeds under C1 and C2 and the rest are run with three seeds; C3 and C4 run on the three seeds shared by all models. The C1 and C2 run on all five TFMs, while C3 and C4 run only on TabPFN v3 and TabICLv2, as stated in @sec-methods-rap. Together with the GBDT baselines this core grid holds 460 <!-- TODO: use a count script and count straight from the source packages. --> runs. On fifar the split stays fixed across these seeds, so the seed variation there reflects only the random context draws.
+
+Two protocol conventions recur in the results chapter. First, the RAP design-space sweep replaces the automatic silhouette grouping of @sec-methods-rap with a forced group count $G$ over $\{8, 16, 32, 64\}$, crossed with the distance metric (cosine or euclidean), the C4 fraud-ratio sweep and both retrieval-capable models, on the three datasets where the conditions separate (eu_cc, banksim and paysim) with three seeds each. This yields 720 runs over 240 configurations. Second, where a results table summarises all conditions at once, it uses a fixed pivot protocol: values are restricted to the seeds C4 ran, each cell takes the better of TabPFN v3 and TabICLv2 averaged over those seeds, and C4 is shown at its best swept ratio. This selection favours the retrieval conditions, so the pivot overstates rather than understates them.
 
 The statistical treatment of the grid is descriptive. Per-dataset values are reported as the mean over seeds with its standard deviation, with fifar contributing a single split. Paired comparisons, such as the C2 minus C1 difference in PR-AUC over the 65 paired core runs, are reported with a confidence interval rather than a bare mean, but the deltas are read as descriptive summaries rather than formal tests, since runs of different models share the same dataset-seed splits and are therefore not independent observations. Win, tie and loss are here defined as an absolute difference below 0.005 counting as a tie. Any effect smaller than one seed standard deviation is flagged as directional rather than significant at three seeds.
