@@ -14,7 +14,9 @@ runner subsamples to, NOT necessarily the model's own cap):
     tabpfn_25  : 50,000 × 2,000  (= checkpoint MAX_NUMBER_OF_SAMPLES)
     tabpfn_26  : 50,000 × 2,000  (checkpoint allows 100,000 — 50k is our budget)
     tabpfn_3   : 50,000 × 2,000  (checkpoint allows 1,000,000 — 50k is our budget)
-    tabiclv2   : 48,000 × 500    (no hard cap; pre-training upper bound)
+    tabiclv2   : 48,000 × 500    (no hard cap; our budget — the v2 paper's
+                                  pretraining curriculum tops out at 60k rows
+                                  and validates inference up to 1M)
 
 Checkpoint values verified 2026-07-06 from each model's
 ``inference_config_.MAX_NUMBER_OF_SAMPLES`` under tabpfn 8.0.8 (review C-3).
@@ -156,8 +158,10 @@ class TabICLModel:
         # None => package default (8). See TabPFNModel.n_estimators note.
         self.n_estimators = n_estimators
         # See TabPFNModel.context_limit_override. For TabICL there is no hard
-        # checkpoint cap, but 48k is the pre-training upper bound — beyond it the
-        # model extrapolates.
+        # checkpoint cap; 48k is our experimental budget. The v2 paper pretrains
+        # on up to 60k-row datasets and validates inference on far larger tables
+        # (arXiv:2602.11139 §4.1, §6), so larger contexts are in-scope, not
+        # extrapolation.
         self.context_limit_override = context_limit_override
         # Memory management only (result-neutral): with a dir set, TabICL's
         # offload_mode='auto' memory-maps oversized encoder outputs to disk
