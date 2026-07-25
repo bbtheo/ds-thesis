@@ -1015,3 +1015,84 @@ journal = {26th European Modeling and Simulation Symposium, EMSS 2014}
   url          = {https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud},
   note         = {Dataset posting by the ULB Machine Learning Group. Accessed 2026-07-15}
 }
+
+@article{andradearenas2025smote_credit_card_comparison,
+  title        = {Comparative Analysis of Machine Learning Models for Credit Card Fraud Detection Using {SMOTE} for Class Imbalance},
+  author       = {Andrade-Arenas, Laberiano and Yactayo-Arias, Cesar},
+  journal      = {International Journal of Safety and Security Engineering},
+  volume       = {15},
+  number       = {5},
+  pages        = {893--901},
+  year         = {2025},
+  doi          = {10.18280/ijsse.150504},
+  note         = {External SOTA comparator for the ULB credit card dataset: AUPRC 0.871 (Random Forest), 0.867 (XGBoost); SMOTE on the training branch of a single stratified 80/20 split, untouched test set}
+}
+
+@misc{brownlee2020imbalanced_creditcard_tutorial,
+  title        = {Imbalanced Classification with the Fraudulent Credit Card Transactions Dataset},
+  author       = {Brownlee, Jason},
+  year         = {2020},
+  howpublished = {Machine Learning Mastery blog},
+  url          = {https://machinelearningmastery.com/imbalanced-classification-with-the-fraudulent-credit-card-transactions-dataset/},
+  note         = {Resampling-free corroboration for the ULB external SOTA band: kNN PR-AUC 0.867 $\pm$ 0.033 under repeated stratified 10-fold cross-validation. Tutorial, not peer-reviewed. Accessed 2026-07-24}
+}
+
+@article{hirnschall2025logsig_bayesian_gan_fraud,
+  title        = {Semi-Supervised Bayesian {GANs} with Log-Signatures for Uncertainty-Aware Credit Card Fraud Detection},
+  author       = {Hirnschall, David},
+  journal      = {Mathematics},
+  volume       = {13},
+  number       = {19},
+  pages        = {3229},
+  year         = {2025},
+  doi          = {10.3390/math13193229},
+  eprint       = {2509.00931},
+  archivePrefix= {arXiv},
+  note         = {External SOTA comparator for BankSim: PR-AUC 0.772 (Random Forest / FNN baselines, Table 3 of the arXiv version) on a class-stratified 90/10 split at a label-scarce operating point; no customer-disjoint splitting claimed}
+}
+
+@inproceedings{visbeek2023deep_symbolic_classification_fraud,
+  title        = {Explainable Fraud Detection with Deep Symbolic Classification},
+  author       = {Visbeek, Samantha and Acar, Erman and den Hengst, Floris},
+  booktitle    = {3rd International Workshop on Explainable AI in Finance, 4th ACM International Conference on AI in Finance (ICAIF'23)},
+  year         = {2023},
+  eprint       = {2312.00586},
+  archivePrefix= {arXiv},
+  doi          = {10.1007/978-3-031-63800-8_18},
+  note         = {External comparator for PaySim: XGBoost baseline F1 0.82 (precision 0.98, recall 0.70) on a natural non-resampled 15\,\% test split with the balance-drain leakage channels neutralized; no threshold-free metric reported. Archival version in Springer CCIS}
+}
+
+@article{hajek2023mobile_payment_xgboost,
+  title        = {Fraud Detection in Mobile Payment Systems using an {XGBoost}-based Framework},
+  author       = {Hajek, Petr and Abedin, Mohammad Zoynul and Sivarajah, Uthayasankar},
+  journal      = {Information Systems Frontiers},
+  volume       = {25},
+  number       = {5},
+  pages        = {1985--2003},
+  year         = {2023},
+  doi          = {10.1007/s10796-022-10346-6},
+  note         = {Likely peer-reviewed PaySim SOTA framework; paywalled, exact PR-AUC/AUC values unverified from an accessible source -- runner-up citation only}
+}
+
+@inproceedings{perdigao2024snn_joint_activity_fraud,
+  title        = {Exploring Neural Joint Activity in Spiking Neural Networks for Fraud Detection},
+  author       = {Perdig{\~a}o, Dylan and Antunes, Francisco and Silva, Catarina and Ribeiro, Bernardete},
+  booktitle    = {Progress in Pattern Recognition, Image Analysis, Computer Vision, and Applications (CIARP 2024)},
+  series       = {Lecture Notes in Computer Science},
+  volume       = {15369},
+  pages        = {45--59},
+  publisher    = {Springer},
+  year         = {2025},
+  doi          = {10.1007/978-3-031-76604-6_4},
+  note         = {Peer-reviewed BAF runner-up: $\approx$47.08\,\% recall at 5\,\% FPR averaged over the suite, at par with the LightGBM baseline}
+}
+
+@misc{nasif2026snn_hyperheuristic_fraud,
+  title        = {Reinforcement-Guided Hyper-Heuristic Hyperparameter Optimization for Fair and Explainable Spiking Neural Network-Based Financial Fraud Detection},
+  author       = {Nasif, Sadman Mohammad and Jahin, Md Abrar and Mridha, M. F.},
+  year         = {2026},
+  eprint       = {2508.16915},
+  archivePrefix= {arXiv},
+  primaryClass = {cs.LG},
+  note         = {Knowledge-Based Systems (2026). Cited for its reproduction of the BAF LightGBM baseline (0.450 recall at 5\,\% FPR); its own 90.8\,\% headline uses CTGAN + imbalanced-learn augmentation with ambiguous placement relative to the temporal split and is excluded as a leakage risk}
+}
