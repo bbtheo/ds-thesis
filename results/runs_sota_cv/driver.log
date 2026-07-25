@@ -3731,3 +3731,5 @@ eu_cc: 284807 rows, 492 frauds, 5-fold stratified CV (cv_seed=42)
 ### tabiclv2 n_est=12: 9 cells ###
   [predict] batch 4/4 | 1247s elapsed | ETA 0s
   [1/9] tabiclv2 fold1 natural ctx=227845 dup=1.0x: PR-AUC=0.9098 R@1=0.9394 (1250s)
+  [predict] batch 4/4 | 1251s elapsed | ETA 0s
+  [2/9] tabiclv2 fold2 natural ctx=227846 dup=1.0x: PR-AUC=0.8960 R@1=0.9286 (1254s)
