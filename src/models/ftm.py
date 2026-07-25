@@ -149,6 +149,7 @@ class TabICLModel:
         seed: int = 42,
         n_estimators: int | None = None,
         context_limit_override: int | None = None,
+        disk_offload_dir: str | None = None,
     ) -> None:
         self.device = device
         self.seed = seed
@@ -158,6 +159,11 @@ class TabICLModel:
         # checkpoint cap, but 48k is the pre-training upper bound — beyond it the
         # model extrapolates.
         self.context_limit_override = context_limit_override
+        # Memory management only (result-neutral): with a dir set, TabICL's
+        # offload_mode='auto' memory-maps oversized encoder outputs to disk
+        # instead of raising CUDA OOM. Needed for ~228k-row full-fold contexts
+        # on 12GB VRAM (sota_cv study); None keeps the library default.
+        self.disk_offload_dir = disk_offload_dir
         self._model = None  # lazy-init on first fit()
 
     @property
@@ -175,6 +181,8 @@ class TabICLModel:
         kwargs = {}
         if self.n_estimators is not None:
             kwargs["n_estimators"] = self.n_estimators
+        if self.disk_offload_dir is not None:
+            kwargs["disk_offload_dir"] = self.disk_offload_dir
         self._model = TabICLClassifier(
             device=self.device,
             random_state=self.seed,
@@ -216,6 +224,7 @@ def build_ftm(
     seed: int = 42,
     n_estimators: int | None = None,
     context_limit_override: int | None = None,
+    disk_offload_dir: str | None = None,
 ) -> TabPFNModel | TabICLModel:
     """
     Instantiate an FTM wrapper by key.
@@ -234,6 +243,7 @@ def build_ftm(
         return TabICLModel(
             device=device, seed=seed, n_estimators=n_estimators,
             context_limit_override=context_limit_override,
+            disk_offload_dir=disk_offload_dir,
         )
     else:
         raise ValueError(
