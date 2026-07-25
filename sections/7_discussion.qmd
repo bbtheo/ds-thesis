@@ -3,3 +3,9 @@ bibliography: ../thesis-refs.bib
 ---
 
 # Discussion
+
+- Fraud ratioo control by startified sampling delivers over random context delivers better results than relevance
+    - Discussion point: Might be that the datasets are already "small" context compared to total volume of transactions data
+        - EU_CC is just a subset of ecommerce payments over two days. 
+        - Other datasets are simulation or synthetic -> Smoother than real world data <!-- CITATION NEEDED -->
+- even a cherry-picked, finer-grained RAP config only **ties** C2 on eu_cc and loses everywhere else (eu_cc RAP-best 0.866 close to C2 0.869; banksim 0.898 < 0.909; paysim 0.693 << 0.983) -> RAP is not salvageable by tuning
