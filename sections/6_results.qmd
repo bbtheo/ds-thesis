@@ -9,10 +9,13 @@ In this chapter we present the results of the tests that were outlined in @sec-m
 ```{r}
 #| label: results-setup
 #| include: false
+library(tidyverse)
+library(ggpattern)
+library(gt)
 
 runs <- list.files("results/runs", pattern = "\\.parquet$", full.names = TRUE) |>
   lapply(\(f) select(nanoparquet::read_parquet(f), dataset, model, condition, seed,
-                     pipeline_version, pr_auc, n_train,
+                     pipeline_version, pr_auc, n_train, n_fraud_train,
                      context_size, context_fraud_n)) |>
   bind_rows()
 
@@ -78,10 +81,12 @@ c2grid <- list.files("results/runs_c2grid", pattern = "\\.parquet$",
                      full.names = TRUE) |>
   lapply(nanoparquet::read_parquet) |>
   bind_rows()
-sweep_datasets <- c("eu_cc", "banksim", "paysim","baf")
-sweep_labels <- c("EU CC", "BankSim", "PaySim", "BAF")
+## only these three datasets carry the full ratio sweep at the 50k context;
+## baf and fifar sit in runs_c2grid at ratio 0.10 only and are excluded
+sweep_datasets <- c("eu_cc", "banksim", "paysim")
+sweep_labels <- c("EU CC", "BankSim", "PaySim")
 rq2_summ <- c2grid |>
-  filter(context_size_req == 50000) |>
+  filter(context_size_req == 50000, dataset %in% sweep_datasets) |>
   group_by(dataset, model, fraud_ratio) |>
   summarise(mean_pr = mean(pr_auc), sd_pr = sd(pr_auc), .groups = "drop") |>
   mutate(model = factor(model, c("tabpfn_3", "tabiclv2"),
@@ -169,11 +174,11 @@ The comparison is intentionally asymmetric. The GBDTs are trained on the full tr
 
 The standalone deficiency of a random context is its in-context fraud count. A C1 context holds the natural fraud rate whatever its size, on average `r sprintf("%.1f", 100 * c1_share)` % across the runs. So even a 50,000-row window carries only a few hundred fraud rows, and the 10,000-row window of TabPFN v2 can carry only a handful. Where this deficiency is worst, the gains from balancing are highest. The mean paired C1-to-C2 lift in PR-AUC is largest for the smallest-context model, TabPFN v2, at `r gain_of("tabpfn_v2")`, against `r gain_of("tabpfn_25")` for TabPFN 2.5, `r gain_of("tabpfn_26")` for TabPFN 2.6, `r gain_of("tabpfn_3")` for TabPFN v3 and `r gain_of("tabiclv2")` for TabICLv2. Across datasets the lift is largest on the most imbalanced dataset, paysim, at `r sprintf("%+.3f", gain_paysim)`. The canonical case combines both: on paysim, TabPFN v2 holds on average `r canon_fr_of("C1")` fraud rows in its C1 window and scores a PR-AUC of `r sprintf("%.3f", canon$C1)`; balancing lifts the fraud count to `r canon_fr_of("C2")` and the PR-AUC to `r sprintf("%.3f", canon$C2)`.
 
-@fig-rq2-ratio-sweep traces the ratio lever directly on the three datasets covered by the ratio sweep which is delved depper in  @sec-app-c2-sweep. Results are for the two strongest TFMs at a fixed 50,000-row stratified random context. BAF and Fifar sit at the separability floor and were not  thus part of this additional ratio and context size sweep. The optimal ratio is dataset-dependent but broad. On eu_cc and banksim, PR-AUC varies little for ratios up to about 0.10 and declines once the ratio reaches 0.20. On eu_cc the high ratios additionally imply heavy duplication of its roughly 394 <!-- TODO: inline R instead of you running it yourself --> unique training fraud rows. On paysim, PR-AUC rises up to a ratio of 0.30 and stays roughly flat thereafter. Ratios near 0.10 sit close to the peak on every dataset.  The models sit at or above the full-data XGBoost baseline through the middle of the sweep on all three datasets, and fall below it only at the extremes.
+@fig-rq2-ratio-sweep traces the ratio lever directly on the three datasets covered by the ratio sweep which is delved depper in  @sec-app-c2-sweep. Results are for the two strongest TFMs at a fixed 50,000-row stratified random context. BAF and Fifar sit at the separability floor and were not  thus part of this additional ratio and context size sweep. The optimal ratio is dataset-dependent but broad. On eu_cc and banksim, PR-AUC varies little for ratios up to about 0.10 and declines once the ratio reaches 0.20. On eu_cc the high ratios additionally imply heavy duplication of its roughly `r round(mean(v4$n_fraud_train[v4$dataset == "eu_cc"]))` unique training fraud rows. On paysim, PR-AUC rises up to a ratio of 0.30 and stays roughly flat thereafter. Ratios near 0.10 sit close to the peak on every dataset.  The models sit at or above the full-data XGBoost baseline through the middle of the sweep on all three datasets, and fall below it only at the extremes.
 
 ```{r}
 #| label: fig-rq2-ratio-sweep
-#| fig-cap: "PR-AUC against the requested in-context fraud ratio, for the two strongest TFMs at a fixed 50,000-row stratified random context. Lines are means over three seeds; the bands span one standard deviation on each side of the mean. Note the free y-scales. The dotted lines mark the per-dataset seed-mean of the full-data XGBoost baseline under C1."
+#| fig-cap: "PR-AUC against the requested in-context fraud ratio, for the two strongest TFMs at a fixed 50,000-row stratified random context, on the three datasets that carry the full sweep. Lines are means over three seeds; the bands span one standard deviation on each side of the mean. Note the free y-scales. The dotted lines mark the per-dataset seed-mean of the full-data XGBoost baseline under C1."
 #| fig-width: 6.5
 #| fig-height: 8
 #| warning: false
@@ -185,7 +190,7 @@ ggplot(rq2_summ, aes(fraud_ratio, mean_pr, colour = model, fill = model)) +
               alpha = 0.2, colour = NA) +
   geom_line(linewidth = 0.6) +
   geom_point(size = 1.1) +
-  facet_wrap(~ dataset, nrow = 4, scales = "free_y") +
+  facet_wrap(~ dataset, nrow = 3, scales = "free_y") +
   scale_colour_manual(values = c("TabPFN v3" = "#eb6834",
                                  "TabICLv2" = "#4a3aa7"), name = NULL) +
   scale_fill_manual(values = c("TabPFN v3" = "#eb6834",
@@ -468,5 +473,213 @@ Even the best single configuration approaches C2 on one dataset only. The strong
 
 Two further checks sharpen the verdict. The better-of-two pivot hides a model split: under C4, TabPFN v3 scores a Recall at 1% FPR of exactly zero on `r rq4_frag_of("tabpfn_3", "zero1")` of its `r rq4_frag_of("tabpfn_3", "n")` runs, against none of TabICLv2's `r rq4_frag_of("tabiclv2", "n")`, so part of the collapse behind the C4 cells is a model-specific ranking fragility rather than a property of retrieval as such. The conclusion is also not metric-specific: the best C4 stays below C2 on every dataset on Recall at 1% FPR and Recall at 5% FPR as well. The answer to RQ4 is therefore negative. Ratio tuning on top of retrieval does not rescue RAP, and no swept configuration justifies retrieval over plain stratified balancing in the tested datasets.
 
-## Comparison with State of the art Fraud detectors
+## Comparison with state-of-the-art fraud detectors {#sec-results-sota}
 
+```{r}
+#| label: sota-setup
+#| include: false
+
+## grid slice: C2 for the two strongest TFMs, all available seeds
+sota_sel <- c("dataset", "model", "condition", "seed", "pipeline_version",
+              "n_estimators", "pr_auc", "recall_at_1fpr", "recall_at_5fpr",
+              "roc_auc")
+sota_grid <- list.files("results/runs", pattern = "\\.parquet$",
+                        full.names = TRUE) |>
+  lapply(\(f) { d <- nanoparquet::read_parquet(f)
+                d[, intersect(sota_sel, names(d)), drop = FALSE] }) |>
+  bind_rows() |>
+  filter(pipeline_version == 4, n_estimators == 4 | is.na(n_estimators),
+         dataset %in% formal_datasets)
+sota_lab <- c(tabpfn_3 = "TabPFN v3", tabiclv2 = "TabICLv2")
+sota_c2 <- sota_grid |>
+  filter(condition == "C2", model %in% names(sota_lab)) |>
+  group_by(dataset, model) |>
+  summarise(pr = mean(pr_auc), pr_sd = sd(pr_auc),
+            r1 = mean(recall_at_1fpr), r5 = mean(recall_at_5fpr),
+            roc = mean(roc_auc), .groups = "drop")
+sota_best_pr <- sota_c2 |> group_by(dataset) |>
+  slice_max(pr, n = 1, with_ties = FALSE) |> ungroup()
+sota_best_r5 <- sota_c2 |> group_by(dataset) |>
+  slice_max(r5, n = 1, with_ties = FALSE) |> ungroup()
+fmt3 <- \(x) sprintf("%.3f", x)
+sota_pr_of   <- \(ds) fmt3(sota_best_pr$pr[sota_best_pr$dataset == ds])
+sota_prm_of  <- \(ds) sota_lab[sota_best_pr$model[sota_best_pr$dataset == ds]]
+sota_prsd_of <- \(ds) fmt3(sota_best_pr$pr_sd[sota_best_pr$dataset == ds])
+sota_r5_of   <- \(ds) fmt3(sota_best_r5$r5[sota_best_r5$dataset == ds])
+sota_r5m_of  <- \(ds) sota_lab[sota_best_r5$model[sota_best_r5$dataset == ds]]
+sota_c2_of   <- \(ds, m) fmt3(sota_c2$pr[sota_c2$dataset == ds & sota_c2$model == m])
+sota_m_of    <- \(ds, m, col) fmt3(
+  sota_c2[[col]][sota_c2$dataset == ds & sota_c2$model == m])
+
+## eu_cc cross-validation study (results/runs_sota_cv; n_estimators = 12,
+## outside the grid, never mixed into grid pivots)
+sota_cv <- list.files("results/runs_sota_cv", pattern = "\\.parquet$",
+                      full.names = TRUE) |>
+  lapply(nanoparquet::read_parquet) |> bind_rows()
+sota_cv_sum <- sota_cv |> group_by(model, arm) |>
+  summarise(folds = n(), n_splits = first(n_splits),
+            pr = mean(pr_auc), pr_sd = sd(pr_auc),
+            dup = mean(dup_factor), .groups = "drop")
+sota_cv_of <- \(m, a, col) {
+  r <- sota_cv_sum |> filter(model == m, arm == a); r[[col]] }
+sota_ctx <- scales::comma(round(mean(sota_cv$context_size)))
+
+## pooled metrics for complete natural arms: every fraud scored exactly once
+## across the folds; tie-grouped average precision, stratified bootstrap
+sota_ap <- function(y, s) {
+  o <- order(s, decreasing = TRUE); y <- y[o]; s <- s[o]
+  g <- cumsum(!duplicated(s)); tp <- cumsum(y); nn <- seq_along(y)
+  last <- !duplicated(g, fromLast = TRUE)
+  prec <- tp[last] / nn[last]; rec <- tp[last] / sum(y)
+  sum(diff(c(0, rec)) * prec)
+}
+sota_cv_complete <- sota_cv_sum |>
+  filter(arm == "natural", folds == n_splits) |> pull(model)
+## the bootstrap takes ~1 min, so it is cached to disk keyed by the run ids,
+## seed and rep count; new folds change the ids and force a recompute
+sota_pool <- lapply(sota_cv_complete, \(m) {
+  ids <- sort(sota_cv |> filter(model == m, arm == "natural") |> pull(run_id))
+  cache_dir <- "results/runs_sota_cv/pooled_cache"
+  dir.create(cache_dir, showWarnings = FALSE)
+  cache_f <- file.path(cache_dir, paste0(
+    m, "_", substr(rlang::hash(list(ids, 1000, 42, "v2")), 1, 12), ".rds"))
+  if (file.exists(cache_f)) return(readRDS(cache_f))
+  p <- bind_rows(lapply(
+    file.path("results/runs_sota_cv/preds", paste0(ids, ".parquet")),
+    nanoparquet::read_parquet))
+  y <- p$y_true; s <- p$prob
+  ip <- which(y == 1); ineg <- which(y == 0)
+  set.seed(42)
+  bs <- replicate(1000, {
+    i <- c(sample(ip, replace = TRUE), sample(ineg, replace = TRUE))
+    sota_ap(y[i], s[i]) })
+  r_at <- \(t) {                       # conservative step, as in metrics.py
+    o <- order(s, decreasing = TRUE); yy <- y[o]
+    fp <- cumsum(1 - yy); tp <- cumsum(yy)
+    max(c(0, (tp / sum(yy))[fp / sum(1 - yy) <= t])) }
+  res <- tibble(model = m, n_fraud = sum(y), ap = sota_ap(y, s),
+                lo = quantile(bs, 0.025), hi = quantile(bs, 0.975),
+                r1 = r_at(0.01), r5 = r_at(0.05),
+                roc = (mean(rank(s)[y == 1]) - (sum(y) + 1) / 2) / sum(1 - y))
+  saveRDS(res, cache_f)
+  res
+}) |> bind_rows()
+sota_pool_of <- \(m, col) fmt3(sota_pool[[col]][sota_pool$model == m])
+sota_nfraud <- sota_pool$n_fraud[1]
+
+## external comparators (verified figures; sources cited in prose).
+## andradearenas2025 reports single-split point values (RF 0.871, XGBoost
+## 0.867); its bootstrap CIs cover accuracy/recall/F1 only, not AUPRC, so the
+## external figure columns carry no whiskers (no cross-source borrowing)
+ext_eucc <- 0.871
+ext_eucc_xgb <- 0.867
+
+## guards: the verdicts claimed in prose must hold on the current data
+stopifnot(sota_best_pr$pr[sota_best_pr$dataset == "banksim"] > 0.772)
+stopifnot(sota_pool$lo[sota_pool$model == "tabpfn_3"] < ext_eucc,
+          ext_eucc < sota_pool$hi[sota_pool$model == "tabpfn_3"])
+```
+
+This final subchapter benchmarks the strongest TFM results of this study against the strongest published results on the same datasets. The comparison is restricted to methodologically sound external work. We accept an external figure as a benchmark only if it reports an imbalance-aware metric, keeps the test set at its natural class ratio and applies any resampling strictly inside the training partition. Much of the published literature on these datasets fails one or more of these filters. These publications usually then produce report near-perfect figures, AUPRC or ROC-AUC of 0.99 and above, typically arise from rebalancing the test set or from applying SMOTE [@chawla2002smote] before splitting, and measure leakage rather than detection. @tbl-sota-comparison collects, per dataset, our collected metrics for both frontier TFM models separately in their best-case configuration, next to the best verified external figures on the metrics their sources report.
+
+| Dataset | Model | PR-AUC | R@1%FPR | R@5%FPR | ROC-AUC |
+|:--|:--|--:|--:|--:|--:|
+| eu_cc | TabPFN v3 | `r sota_pool_of("tabpfn_3", "ap")` | `r sota_pool_of("tabpfn_3", "r1")` | `r sota_pool_of("tabpfn_3", "r5")` | `r sota_pool_of("tabpfn_3", "roc")` |
+| | External [@andradearenas2025smote_credit_card_comparison] | 0.871 | | | 0.978 |
+| banksim | TabPFN v3 | `r sota_m_of("banksim", "tabpfn_3", "pr")` | `r sota_m_of("banksim", "tabpfn_3", "r1")` | `r sota_m_of("banksim", "tabpfn_3", "r5")` | `r sota_m_of("banksim", "tabpfn_3", "roc")` |
+| | TabICLv2 | `r sota_m_of("banksim", "tabiclv2", "pr")` | `r sota_m_of("banksim", "tabiclv2", "r1")` | `r sota_m_of("banksim", "tabiclv2", "r5")` | `r sota_m_of("banksim", "tabiclv2", "roc")` |
+| | External [@hirnschall2025logsig_bayesian_gan_fraud] | 0.772 | | | |
+| paysim | TabPFN v3 | `r sota_m_of("paysim", "tabpfn_3", "pr")` | `r sota_m_of("paysim", "tabpfn_3", "r1")` | `r sota_m_of("paysim", "tabpfn_3", "r5")` | `r sota_m_of("paysim", "tabpfn_3", "roc")` |
+| | TabICLv2 | `r sota_m_of("paysim", "tabiclv2", "pr")` | `r sota_m_of("paysim", "tabiclv2", "r1")` | `r sota_m_of("paysim", "tabiclv2", "r5")` | `r sota_m_of("paysim", "tabiclv2", "roc")` |
+| | External [@visbeek2023deep_symbolic_classification_fraud] | | | | |
+| fifar | TabPFN v3 | `r sota_m_of("fifar", "tabpfn_3", "pr")` | `r sota_m_of("fifar", "tabpfn_3", "r1")` | `r sota_m_of("fifar", "tabpfn_3", "r5")` | `r sota_m_of("fifar", "tabpfn_3", "roc")` |
+| | TabICLv2 | `r sota_m_of("fifar", "tabiclv2", "pr")` | `r sota_m_of("fifar", "tabiclv2", "r1")` | `r sota_m_of("fifar", "tabiclv2", "r5")` | `r sota_m_of("fifar", "tabiclv2", "roc")` |
+| | External [@alves2023fifar_learning_to_defer] | | | 0.579 | |
+| baf | TabPFN v3 | `r sota_m_of("baf", "tabpfn_3", "pr")` | `r sota_m_of("baf", "tabpfn_3", "r1")` | `r sota_m_of("baf", "tabpfn_3", "r5")` | `r sota_m_of("baf", "tabpfn_3", "roc")` |
+| | TabICLv2 | `r sota_m_of("baf", "tabiclv2", "pr")` | `r sota_m_of("baf", "tabiclv2", "r1")` | `r sota_m_of("baf", "tabiclv2", "r5")` | `r sota_m_of("baf", "tabiclv2", "roc")` |
+| | External [@jesus2022baf_arxiv] | | | 0.45 to 0.50 | |
+
+: All collected ranking metrics for the two strongest TFMs in the best case scenarios from this study next to the best verified external figures. The eu_cc rows use the full-context protocol: pooled predictions of the five-fold cross-validation described in the text. The values of the other datasets are seed-means of the stratified balanced context (C2) runs, whose 48,000 to 50,000-row context limit makes them conservative. Empty cells in the external rows are metrics the source does not report. For example, recall at a fixed FPR appears in no verified source on eu_cc, banksim or paysim. Furthermore, paysim's only sound external figure is a thresholded F1 of 0.82, not comparable to any column. The banksim source also reports its own deviation of $\pm$ 0.010. {#tbl-sota-comparison}
+
+<!-- TODO: when the TabICLv2 CV run completes (see TODO below), add its eu_cc row here; the pooled values come from sota_pool automatically once its 5 natural folds exist. Until then eu_cc has no TabICLv2 row, since this chapter reports only full-context figures for eu_cc. -->
+
+The EU credit card datasets comparison is closest to like-for-like, since both sides report PR-AUC over the full ULB dataset at its natural prevalence. On this dataset we therefore report the full-context protocol rather than a context-limited grid cell: a stratified five-fold cross-validation over all 284,807 rows, with the entire training fold of about `r sota_ctx` rows as the context and an ensemble size of 12. <!-- driver: scripts/run_eucc_sota_cv.py; rows in results/runs_sota_cv (n_estimators=12, never mix into grid pivots) --> Pooling the fold predictions, so that each of the `r sota_nfraud` frauds is scored exactly once, TabPFN v3 at the natural in-context fraud ratio reaches a PR-AUC of `r sota_pool_of("tabpfn_3", "ap")`, with a stratified bootstrap 95 % confidence interval of `r sota_pool_of("tabpfn_3", "lo")` to `r sota_pool_of("tabpfn_3", "hi")`. The external side reports 0.871 for a tuned random forest and 0.867 for XGBoost [@andradearenas2025smote_credit_card_comparison]. Another benchmark without resampling corroborates that level with a kNN PR-AUC of 0.867 $\pm$ 0.033 under repeated cross-validation [@brownlee2020imbalanced_creditcard_tutorial]. Our point value is nominally the highest of these figures, but the interval comfortably contains both external points. The sound reading is that a zero-shot TFM matches the verified state of the art on this dataset, not that it beats it. A second arm that tops the context fraud share up to 2 % by duplication averages `r fmt3(sota_cv_of("tabpfn_3", "ratio_0.02", "pr"))` over the folds, no better than the natural ratio, consistent with the duplication penalty of @sec-results-rq2. <!-- TODO: Tabiclv2 CV run incomplete -->
+
+<!-- TODO: Add internal link to c1 below -->
+
+```{r}
+#| label: fig-sota-eucc
+#| fig-cap: "PR-AUC on eu_cc, naive against optimised, per model. Solid columns are the naive result: a random C1 context for the TFMs and our full-data fit for the GBDT baselines. The light extension raises each column to the model's best optimised result. For the froniter TFMs this is the full training contexts and the stratified balanced context C2 for the rest. For the tree models, the optimised values are the best verified external figures, a tuned random forest and tuned XGBoost on a single split [@andradearenas2025smote_credit_card_comparison]. The random forest has no naive counterpart in this study, so its column is a single optimised layer. Whiskers extend one standard deviation above the mean. The external values carry no whiskers as their source reports no confidence intervals for AUPRC."
+#| fig-width: 6.5
+#| fig-height: 3.8
+#| warning: false
+
+sota_lab_map <- c(rf_external = "Random forest", xgboost = "XGBoost",
+                  catboost = "CatBoost", tabpfn_v2 = "TabPFN v2",
+                  tabpfn_25 = "TabPFN 2.5", tabpfn_26 = "TabPFN 2.6",
+                  tabpfn_3 = "TabPFN v3", tabiclv2 = "TabICLv2")
+sota_naive <- sota_grid |> filter(dataset == "eu_cc", condition == "C1") |>
+  group_by(model) |>
+  summarise(value = mean(pr_auc), sd = sd(pr_auc), .groups = "drop") |>
+  mutate(layer = "Naive")
+## optimised = CV natural arm when its five folds exist, C2 grid mean otherwise;
+## the CV rows take over automatically once the remaining folds are run
+sota_opt_cv <- sota_cv |>
+  filter(arm == "natural", model %in% sota_cv_complete) |>
+  group_by(model) |>
+  summarise(value = mean(pr_auc), sd = sd(pr_auc), .groups = "drop")
+sota_opt <- sota_grid |>
+  filter(dataset == "eu_cc", condition == "C2") |>
+  group_by(model) |>
+  summarise(value = mean(pr_auc), sd = sd(pr_auc), .groups = "drop") |>
+  anti_join(sota_opt_cv, by = "model") |>
+  bind_rows(sota_opt_cv) |>
+  mutate(layer = "Optimised")
+sota_ext <- tibble(model = c("rf_external", "xgboost"),
+                   value = c(ext_eucc, ext_eucc_xgb),
+                   sd = NA_real_, layer = "Optimised")
+sota_fig <- bind_rows(sota_ext, sota_opt, sota_naive) |>  # optimised drawn behind
+  mutate(family = if_else(model %in% c(gbdt_models, "rf_external"),
+                          "Tree", "TFM"),
+         layer = factor(layer, c("Naive", "Optimised")))
+sota_ord <- sota_fig |> group_by(model) |>
+  summarise(top = max(value), .groups = "drop") |>
+  arrange(desc(top)) |> pull(model)
+sota_fig <- sota_fig |>
+  mutate(model_lab = factor(model, sota_ord, sota_lab_map[sota_ord]))
+sota_whisk <- sota_fig |> group_by(model_lab) |>
+  slice_max(value, n = 1, with_ties = FALSE)
+
+ggplot(sota_fig, aes(model_lab, value, fill = model_lab, alpha = layer)) +
+  geom_col_pattern(aes(pattern = family), position = "identity", width = 0.7,
+                   colour = "grey25", linewidth = 0.15,
+                   pattern_colour = NA, pattern_fill = "white",
+                   pattern_angle = 45, pattern_density = 0.25,
+                   pattern_spacing = 0.02, pattern_key_scale_factor = 0.6) +
+  geom_errorbar(data = sota_whisk, aes(ymin = value, ymax = value + sd),
+                width = 0.3, linewidth = 0.35, colour = "grey25",
+                alpha = 1, na.rm = TRUE) +
+  scale_fill_manual(values = c(
+    "Random forest" = "grey55", "XGBoost" = "#2a78d6",
+    "CatBoost" = "#008300", "TabPFN v2" = "#e87ba4",
+    "TabPFN 2.5" = "#eda100", "TabPFN 2.6" = "#1baf7a",
+    "TabPFN v3" = "#eb6834", "TabICLv2" = "#4a3aa7")) +
+  scale_alpha_manual(values = c(Naive = 1, Optimised = 0.4), name = NULL) +
+  scale_pattern_manual(values = c(Tree = "stripe", TFM = "none")) +
+  scale_y_continuous(limits = c(0, 1.02), expand = expansion(0)) +
+  labs(x = NULL, y = "PR-AUC") +
+  guides(fill = "none", pattern = "none",
+         alpha = guide_legend(override.aes = list(fill = "grey35",
+                                                  pattern = "none"))) +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(), axis.ticks.x = element_blank())
+```
+
+@fig-sota-eucc visualises the effects on optimising the context. Balancing alone lifts most TFMs close to the external tree benchmark, and the final full training context run lifts TabPFN v3 above them. <!-- TODO: double check after tabicl run finishes --> On the tree side the naive columns are our fixed-default full-data fits (@sec-methods-models) and the optimised values come from the external source, so the gap between the solid XGBoost column and its light extension is roughly the price of forgoing per-dataset hyperparameter tuning.
+
+On banksim our `r sota_pr_of("banksim")` (`r sota_prm_of("banksim")`) clearly exceeds the best verified external PR-AUC of 0.772, reported for random forest and feed-forward baselines in a semi-supervised benchmark [@hirnschall2025logsig_bayesian_gan_fraud]. In this comparison there is two caveats that cut in opposite directions, so this cannot be considered as one-to-one compariso. The external figure is a deliberately label-scarce operating point, with 5 % of training labels revealed, so a fully supervised external ensemble could plausibly score higher. On the other hand, our split is grouped by customer as was elaborated in @sec-methods-splits while the external split is class-stratified only. So our protocol is a stricter one and customer leakage cannot be ruled out on their results. No published BankSim benchmark with a customer-disjoint split was found.
+
+The remaining two datasets are compared on recall at a 5 % false-positive rate. On fifar we reach `r sota_r5_of("fifar")` against the 0.579 of the LightGBM alert model shipped with the dataset [@alves2023fifar_learning_to_defer]. The external figure is a validation-fold value with the operating threshold chosen on the same fold, and it is the only standalone classification result published on fifar, so we read the comparison as at par. On baf we reach `r sota_r5_of("baf")` against the 0.45 to 0.50 read from the scatter of tuned LightGBM configurations in the original benchmark [@jesus2022baf_arxiv], corroborated by an independent reproduction at 0.450 [@nasif2026snn_hyperheuristic_fraud] and a peer-reviewed runner-up at 0.471 [@perdigao2024snn_joint_activity_fraud]. Our value is nominally above that band, but the published figures use the canonical temporal split while our grid uses random stratified splits, so the temporal ablation of @sec-app-second is the honest comparable cell. Higher published claims on baf were excluded; the largest, a 90.8 % spiking-network result, rests on generative augmentation whose placement relative to the temporal split is ambiguous [@nasif2026snn_hyperheuristic_fraud].
+
+Across the five datasets the pattern is uniform. A zero-shot TFM with a stratified balanced context, frozen weights, no per-dataset tuning and a deliberately reduced ensemble (@sec-methods-models) is above the sound external state of the art on banksim, at par on eu_cc and fifar, nominally above on baf under a different split protocol, and without a sound comparator on paysim. None of the surveyed sources on eu_cc, banksim or paysim reports recall at a fixed false-positive rate, so the recall columns of our grid double as a reference benchmark for that gap. Three caveats bound the claim. The random-split protocol keeps time as a feature and may inflate the ranking metrics of the separable datasets (@sec-methods-splits). The per-dataset choice of the better TFM is mildly in our favour. For increased clarity @tbl-sota-comparison reports both models separately. And the external side rests on a small number of verified sources of moderate strength, so the band it defines is soft.

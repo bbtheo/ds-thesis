@@ -44,3 +44,4 @@ results/*.log
 
 /.quarto/
 **/*.quarto_ipynb
+results/runs_sota_cv/pooled_cache/
