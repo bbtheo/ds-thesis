@@ -3733,3 +3733,20 @@ eu_cc: 284807 rows, 492 frauds, 5-fold stratified CV (cv_seed=42)
   [1/9] tabiclv2 fold1 natural ctx=227845 dup=1.0x: PR-AUC=0.9098 R@1=0.9394 (1250s)
   [predict] batch 4/4 | 1251s elapsed | ETA 0s
   [2/9] tabiclv2 fold2 natural ctx=227846 dup=1.0x: PR-AUC=0.8960 R@1=0.9286 (1254s)
+  [predict] batch 4/4 | 1264s elapsed | ETA 0s
+  [3/9] tabiclv2 fold3 natural ctx=227846 dup=1.0x: PR-AUC=0.8864 R@1=0.9184 (1267s)
+  [predict] batch 4/4 | 1249s elapsed | ETA 0s
+  [4/9] tabiclv2 fold4 natural ctx=227846 dup=1.0x: PR-AUC=0.8520 R@1=0.8673 (1253s)
+  [predict] batch 4/4 | 1288s elapsed | ETA 0s
+  [5/9] tabiclv2 fold0 r0.02 ctx=232094 dup=11.8x: PR-AUC=0.8433 R@1=0.8788 (1292s)
+  [predict] batch 4/4 | 1290s elapsed | ETA 0s
+  [6/9] tabiclv2 fold1 r0.02 ctx=232094 dup=11.8x: PR-AUC=0.9028 R@1=0.9293 (1294s)
+  [predict] batch 4/4 | 1290s elapsed | ETA 0s
+  [7/9] tabiclv2 fold2 r0.02 ctx=232094 dup=11.8x: PR-AUC=0.8772 R@1=0.9490 (1295s)
+  [predict] batch 4/4 | 1286s elapsed | ETA 0s
+  [8/9] tabiclv2 fold3 r0.02 ctx=232094 dup=11.8x: PR-AUC=0.8750 R@1=0.9184 (1291s)
+  [predict] batch 4/4 | 1288s elapsed | ETA 0s
+  [9/9] tabiclv2 fold4 r0.02 ctx=232094 dup=11.8x: PR-AUC=0.8487 R@1=0.8673 (1292s)
+
+All done.
+Complete after 1 attempt(s).
