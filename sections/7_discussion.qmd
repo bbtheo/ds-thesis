@@ -2,10 +2,67 @@
 bibliography: ../thesis-refs.bib
 ---
 
-# Discussion
+# Discussion {#sec-discussion}
 
-- Fraud ratioo control by startified sampling delivers over random context delivers better results than relevance
-    - Discussion point: Might be that the datasets are already "small" context compared to total volume of transactions data
-        - EU_CC is just a subset of ecommerce payments over two days. 
-        - Other datasets are simulation or synthetic -> Smoother than real world data <!-- CITATION NEEDED -->
-- even a cherry-picked, finer-grained RAP config only **ties** C2 on eu_cc and loses everywhere else (eu_cc RAP-best 0.866 close to C2 0.869; banksim 0.898 < 0.909; paysim 0.693 << 0.983) -> RAP is not salvageable by tuning
+```{r}
+#| label: disc-setup
+#| include: false
+library(dplyr)
+
+## seed-matched C2 reference (better of the two SOTA TFMs, seeds the sweeps ran)
+disc_md <- c("tabpfn_3", "tabiclv2")
+disc_sel <- c("dataset", "model", "condition", "seed", "pipeline_version",
+              "n_estimators", "pr_auc")
+disc_c2 <- list.files("results/runs", pattern = "\\.parquet$",
+                      full.names = TRUE) |>
+  lapply(\(f) { d <- nanoparquet::read_parquet(f)
+                d[, intersect(disc_sel, names(d)), drop = FALSE] }) |>
+  bind_rows() |>
+  filter(pipeline_version == 4, n_estimators == 4, condition == "C2",
+         model %in% disc_md, seed %in% c(7, 42, 123),
+         dataset %in% c("eu_cc", "banksim", "paysim")) |>
+  group_by(dataset, model) |>
+  summarise(pr = mean(pr_auc), .groups = "drop") |>
+  group_by(dataset) |>
+  summarise(pr = max(pr), .groups = "drop")
+disc_c2_of <- \(ds) sprintf("%.3f", disc_c2$pr[disc_c2$dataset == ds])
+
+## best single configuration of the RAP design-space sweep, per dataset
+disc_best <- list.files("results/runs_rapds", pattern = "\\.parquet$",
+                        full.names = TRUE) |>
+  lapply(nanoparquet::read_parquet) |>
+  bind_rows() |>
+  filter(ds_version == 1, n_estimators == 4) |>
+  group_by(dataset, model, metric, granularity, fraud_ratio) |>
+  summarise(pr = mean(pr_auc), .groups = "drop") |>
+  group_by(dataset) |> slice_max(pr, n = 1, with_ties = FALSE) |> ungroup()
+disc_best_of <- \(ds) sprintf("%.3f", disc_best$pr[disc_best$dataset == ds])
+```
+
+This chapter interprets the results, states the limitations of the study, and outlines future work. The central finding of this thesis is asymmetric. Controlling the in-context fraud ratio by stratified sampling of a random context improved performance on every dataset, while retrieving a relevant context by kNN search made it worse, as it is clarified in @sec-results-rq4. The lever that works is the class ratio, not relevance.
+
+One explanation for the failure of relevance is that the benchmark datasets may already be small and homogeneous relative to the data a production detector faces. eu_cc, the only real dataset, covers just two days of card payments [@dalpozzolo2015calibrating; @mlgulb2018creditcardfraud_kaggle]. As described in @sec-data-datasets other datasets are (non-AI) agent-based simulations or synthetic constructions, and such generated data is smoother than real transaction data. Even the authors of a fraud-data simulator describe it as a necessarily simplified approximation of the complex dynamics of real payment transactions [@leborgne2022fraud_detection_handbook]. Real payment streams also mix multiple data-generating processes on both sides of the label, legitimate payments span many instruments and habits, and fraud spans many distinct modi operandi, as the EBA fraud taxonomy catalogues [@moes2024_pan_european_fraud_taxonomy]. In data of that heterogeneity a retrieved local context could plausibly carry information a random sample does not. In the flatter benchmark data a 50,000-row random sample may already cover the structure, leaving relevance nothing to add.
+
+Ratio control has a boundary of its own. The number of unique fraud examples in the training data. Raising the ratio past the point where every unique fraud row is already in the context adds duplicates, not information that helps the predictor. The full-context study on eu_cc in @sec-results-sota makes the point directly, since the natural-prevalence contexts performed at least as well as the arm oversampled to a 2 % fraud share. The practical reading is to include the fraud rows that exist, not to chase a target prevalence.
+
+Tuning does not rescue retrieval either. The best configuration found in the design-space sweep, selected per dataset on the test splits, only ties the stratified random context on eu_cc (`r disc_best_of("eu_cc")` against `r disc_c2_of("eu_cc")`) and loses on banksim (`r disc_best_of("banksim")` against `r disc_c2_of("banksim")`) and paysim (`r disc_best_of("paysim")` against `r disc_c2_of("paysim")`). On the datasets where it was evaluated, RAP is not salvageable by finetuning.
+
+## Limitations {#sec-limitations}
+
+The negative result on retrieval is bounded to the design space this thesis evaluated: frozen tabular foundation models, kNN retrieval with cosine distance, fraud prevalences below 1.5 % and ranking metrics. It is not a claim that retrieval cannot help in-context learners anywhere. Part of the result may also be due to the sizes of the datasets and the small variety within them, as discussed above.
+
+The statistical power is modest. Most cells carry three seeds per dataset, fifar rests on its single pre-defined split, and small deltas are therefore read as directional rather than significant as shown in @sec-methods-grid.
+
+Time columns are kept as features under a random split, which is a temporal-leakage threat that may inflate the ranking metrics of the separable datasets. The time-split ablation in @sec-app-second bounds this threat. One observation points the same way is fifar, a subset of baf evaluated on its canonical temporal split, scores higher than baf itself under the random split. The whole performance can be found from @tbl-rq4-pivot.
+
+The positive rebalancing finding partly replictaes the findings of @tanna2026data_presentation_resampling, who report that balanced resampled contexts help tabular foundation models on imbalanced credit data. The novelty of the findings is the heavier imbalance regime, the threshold-free ranking metrics and the C1 to C4 decomposition.
+
+The GBDT baselines run at fixed strong defaults, not per-dataset tuning, so the comparison is a zero-shot TFM against fixed-default trees rather than against tuned state-of-the-art trees. A comparison against tuned models is instead delegated to the external results fetched from the literature in @sec-results-sota, which brings its own comparability limits.
+
+All grid numbers use an ensemble of four estimators, half of the default values. This was done to mitigate the compute time. The sweep in @sec-app-nest bounds the cost of this choice at 0.006 PR-AUC or less, and @sec-app-inference quantifies the inference-time budget itself. The deliberate exception is the full-context cross-validation on eu_cc, run at a larger ensemble to put the best foot forward in the external comparison of @sec-results-sota.
+
+## Future work {#sec-future-work}
+
+Three follow-ups target the mechanisms directly. A learned imbalance-aware retrieval embedding would test whether relevance fails here because naive feature-space distance is not predictive relevance under imbalance [@pham2026aware]. Interpolation-based minority synthesis in the style of SMOTE could replace with-replacement duplication on fraud-scarce data such as eu_cc [@chawla2002smote]. A same-protocol head-to-head against post-hoc thresholding [@mcdowell2026correcting_imbalance_pfn] and analytic label-shift correction [@lee2026distpfn_label_shift_tabpfn] would settle whether in-context rebalancing beats the post-hoc alternatives on ranking metrics.
+
+The larger open question follows from the discussion above: whether RAP works on data that is more varied than these benchmarks, or whether the fraud ratio remains the only usable lever there as well. Real, heterogeneous transaction streams are where locality has its best chance. Per-batch retrieval granularity, deferred in @sec-methods-rap, also remains untested.
