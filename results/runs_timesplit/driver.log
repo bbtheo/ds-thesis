@@ -1,0 +1,46 @@
+Total: 18  pending: 17  done: 1
+
+### loading banksim (temporal split) ###
+  boundary t=147  train 476005/5920 fraud  test 118638/1280 fraud (prev 1.079%)
+  [predict] batch 2/2 | 27s elapsed | ETA 0s
+  [1/17] banksim s42 tabpfn_3 ctx50k: PR-AUC=0.9301 R@5FPR=1.0000 dup=1.0x (27s)
+  [predict] batch 2/2 | 12s elapsed | ETA 0s
+  [2/17] banksim s123 tabiclv2 ctx48k: PR-AUC=0.9297 R@5FPR=1.0000 dup=1.0x (13s)
+  [predict] batch 2/2 | 24s elapsed | ETA 0s
+  [3/17] banksim s123 tabpfn_3 ctx50k: PR-AUC=0.9304 R@5FPR=1.0000 dup=1.0x (25s)
+  [predict] batch 2/2 | 12s elapsed | ETA 0s
+  [4/17] banksim s7 tabiclv2 ctx48k: PR-AUC=0.9195 R@5FPR=1.0000 dup=1.0x (12s)
+  [predict] batch 2/2 | 24s elapsed | ETA 0s
+  [5/17] banksim s7 tabpfn_3 ctx50k: PR-AUC=0.9225 R@5FPR=1.0000 dup=1.0x (25s)
+
+### loading eu_cc (temporal split) ###
+  boundary t=145248  train 227846/417 fraud  test 56961/75 fraud (prev 0.132%)
+  [predict] batch 4/4 | 29s elapsed | ETA 0s
+  [6/17] eu_cc s42 tabiclv2 ctx48k: PR-AUC=0.8046 R@5FPR=0.9600 dup=11.5x (30s)
+  [predict] batch 4/4 | 53s elapsed | ETA 0s
+  [7/17] eu_cc s42 tabpfn_3 ctx50k: PR-AUC=0.8065 R@5FPR=0.9467 dup=12.0x (53s)
+  [predict] batch 4/4 | 29s elapsed | ETA 0s
+  [8/17] eu_cc s123 tabiclv2 ctx48k: PR-AUC=0.8154 R@5FPR=0.9600 dup=11.5x (30s)
+  [predict] batch 4/4 | 53s elapsed | ETA 0s
+  [9/17] eu_cc s123 tabpfn_3 ctx50k: PR-AUC=0.8179 R@5FPR=0.9600 dup=12.0x (53s)
+  [predict] batch 4/4 | 29s elapsed | ETA 0s
+  [10/17] eu_cc s7 tabiclv2 ctx48k: PR-AUC=0.7991 R@5FPR=0.9733 dup=11.5x (30s)
+  [predict] batch 4/4 | 53s elapsed | ETA 0s
+  [11/17] eu_cc s7 tabpfn_3 ctx50k: PR-AUC=0.7983 R@5FPR=0.9733 dup=12.0x (53s)
+
+### loading paysim (temporal split) ###
+  boundary t=355  train 5113884/3963 fraud  test 1248736/4250 fraud (prev 0.340%)
+  [predict] batch 3/3 | 17s elapsed | ETA 0s
+  [12/17] paysim s42 tabiclv2 ctx48k: PR-AUC=0.8763 R@5FPR=1.0000 dup=1.2x (17s)
+  [predict] batch 3/3 | 34s elapsed | ETA 0s
+  [13/17] paysim s42 tabpfn_3 ctx50k: PR-AUC=0.9775 R@5FPR=1.0000 dup=1.3x (34s)
+  [predict] batch 3/3 | 17s elapsed | ETA 0s
+  [14/17] paysim s123 tabiclv2 ctx48k: PR-AUC=0.8914 R@5FPR=1.0000 dup=1.2x (17s)
+  [predict] batch 3/3 | 34s elapsed | ETA 0s
+  [15/17] paysim s123 tabpfn_3 ctx50k: PR-AUC=0.9714 R@5FPR=1.0000 dup=1.3x (34s)
+  [predict] batch 3/3 | 17s elapsed | ETA 0s
+  [16/17] paysim s7 tabiclv2 ctx48k: PR-AUC=0.7900 R@5FPR=1.0000 dup=1.2x (17s)
+  [predict] batch 3/3 | 34s elapsed | ETA 0s
+  [17/17] paysim s7 tabpfn_3 ctx50k: PR-AUC=0.9693 R@5FPR=1.0000 dup=1.3x (34s)
+
+All done.
