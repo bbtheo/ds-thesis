@@ -1,4 +1,4 @@
-# Retrieval-Augmented Prediction for Tabular Foundation Models under Heavy Class Imbalance
+# Test-Time Context Construction for Tabular Foundation Models under Extreme Class Imbalance
 
 Master's thesis (Data Science, University of Helsinki), evaluated on financial fraud detection datasets.
 
