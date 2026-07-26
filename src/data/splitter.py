@@ -59,6 +59,35 @@ def split(
     return X_train, X_test, y_train, y_test
 
 
+def split_temporal(
+    X: np.ndarray,
+    y: np.ndarray,
+    t: np.ndarray,
+    test_size: float = 0.2,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+    """
+    Deterministic temporal split at a time-value boundary.
+
+    The boundary is the smallest time value whose cumulative row count reaches
+    ``1 - test_size`` of all rows; train = rows with ``t <= boundary``, test =
+    the rest. Splitting at a value boundary rather than a row rank guarantees
+    no timestamp straddles the split, so the realised train fraction can
+    slightly exceed ``1 - test_size`` when many rows share the boundary value.
+    No randomness — the split is identical for every seed. Not stratified and
+    not grouped: entities may straddle the boundary, and the two sides may have
+    different fraud rates (both are properties of the temporal protocol itself).
+
+    Returns
+    -------
+    X_train, X_test, y_train, y_test, boundary
+    """
+    vals, counts = np.unique(t, return_counts=True)
+    cum = np.cumsum(counts)
+    boundary = vals[np.searchsorted(cum, (1 - test_size) * len(t))]
+    train_mask = t <= boundary
+    return X[train_mask], X[~train_mask], y[train_mask], y[~train_mask], float(boundary)
+
+
 def subsample_test(
     X_test: np.ndarray,
     y_test: np.ndarray,
