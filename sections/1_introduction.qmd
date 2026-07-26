@@ -156,7 +156,7 @@ The decomposition above translates into four research questions.
 
 RQ1 establishes the baseline comparison against the dominant model family for tabular data. RQ2 and RQ3 evaluate the two levers of @sec-intro-rap in isolation, and RQ4 evaluates their combination the full RAP method.
 
-## Outline of the Thesis
+## Outline of the thesis {#sec-intro-outline}
 
-<!-- TODO: write outline when the thesis outline is done. -->
+The remainder of the thesis is organised as follows. @sec-background introduces the concepts the argument rests on: learning under class imbalance, evaluation with ranking metrics, gradient-boosted trees and the in-context-learning mechanism of tabular foundation models. @sec-related-work reviews prior work on context construction for these models and locates the gap this thesis fills. @sec-data describes the benchmark datasets, their provenance and their limitations. @sec-methods specifies the four context-construction conditions, the RAP pipeline, the models and the evaluation protocol. @sec-results reports the experimental results, one section per research question, and closes with a comparison against published state-of-the-art results. @sec-discussion interprets the findings, states the limitations of the study and outlines future work, and @sec-conclusion summarises the answers to the research questions. The appendices carry supporting material, including a dissection of a degenerate benchmark dataset (@sec-app-cc) and the robustness ablations referenced throughout.
 

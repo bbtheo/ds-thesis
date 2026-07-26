@@ -2,7 +2,7 @@
 bibliography: ../thesis-refs.bib
 ---
 
-# Data
+# Data {#sec-data}
 
 All code to reproduce the results of this thesis is released [here](https://github.com/bbtheo/ds-thesis).
 

@@ -2,7 +2,7 @@
 bibliography: ../thesis-refs.bib
 ---
 
-# Background
+# Background {#sec-background}
 
 ## Fraud detection as supervised learning with extreme class imbalance
 
