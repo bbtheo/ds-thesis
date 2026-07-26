@@ -158,6 +158,11 @@ All in all seems that there has been
 
 # Time split ablations {#sec-app-second .appendix}
 
+- forced 80/20 temporal splits on eu_cc, paysim, banksim 
+  - fifar already does this to baf
+  - run only on frintier ftm on the best setup for c2 
+  - statistical comparison between the C2 results an 
+
 # The fraud-ratio and context-size sweep {#sec-app-c2-sweep .appendix}
 
 Condition C2 fixes a single balancing target, but the choice of operating point matters as much as the mechanism itself. This sweep maps the stratified-random mechanism over the full plane of fraud ratio and context size, so the ratio effect can be characterised as a curve rather than read off a single point. It also gives the C4 ratio sweep (@sec-methods-conditions) a like-for-like counterpart at every ratio: one condition with retrieval, one without, both under the same with-replacement fraud policy.
@@ -323,3 +328,196 @@ The design is a 2x2 over selection mechanisms: legitimate rows drawn either at r
 The ablation is additionally run at a natural ratio level, defined per dataset as the training-split fraud prevalence, for the RR and KK arms only. This supplies the clean form of the C1-to-C3 contrast: both arms see the same natural class ratio and the same grouping, so only the selection mechanism differs between them. At the natural level the fraud quota sits below the unique fraud count by construction, so no duplication occurs. <!-- TODO: inline R for the realised natural ratios per dataset -->
 
 Each contrast in this design answers a distinct question. The ratio effect is addressed in @sec-methods-conditions. Granularity is addressed by RR against the global sweep of @sec-app-c2-sweep. Legitimate-selector relevance is addressed by RK against KK and by RR against KR. Fraud-selector relevance is addressed by RR against RK and by KR against KK. The selection mechanism at natural prevalence, free of ratio enforcement, is addressed by RR against KK at the natural level.
+
+# Inference-time scaling {#sec-app-inference .appendix}
+
+```{r}
+#| label: inftime-setup
+#| include: false
+
+# Sweep-side objects (reuse c2_grid from c2-app-setup). The three sweep
+# datasets carry 7 (banksim, paysim) or 30 (eu_cc) features; the
+# n_estimators sweep adds baf (30) and fifar (29) rows at the 50k recipe.
+inft_disp <- c(tabpfn_v2 = "TabPFN v2", tabpfn_25 = "TabPFN 2.5",
+               tabpfn_26 = "TabPFN 2.6", tabpfn_3 = "TabPFN v3",
+               tabiclv2 = "TabICLv2")
+inft_col <- c("TabPFN v3" = "#eb6834", "TabICLv2" = "#4a3aa7")
+
+inft_ctx <- c2_grid |>
+  filter(n_estimators == 4, dataset %in% c("banksim", "eu_cc", "paysim")) |>
+  mutate(s_per_1k = predict_s / (n_test_scored / 1000)) |>
+  summarise(predict_s = mean(predict_s), s_per_1k = mean(s_per_1k),
+            .by = c(model, context_size_req)) |>
+  mutate(model = inft_disp[model])
+
+inft_at <- function(m, s, col = "predict_s") {
+  inft_ctx[[col]][inft_ctx$model == m & inft_ctx$context_size_req == s]
+}
+inft_ratio_v3 <- inft_at("TabPFN v3", 2e5) / inft_at("TabPFN v3", 5e4)
+inft_ratio_icl <- inft_at("TabICLv2", 2e5) / inft_at("TabICLv2", 5e4)
+inft_fit_max <- c2_grid |>
+  filter(dataset %in% c("banksim", "eu_cc", "paysim")) |>
+  summarise(m = max(fit_s)) |>
+  pull(m)
+
+inft_nest <- c2_grid |>
+  filter(fraud_ratio == 0.10, context_size_req == 50000) |>
+  summarise(predict_s = mean(predict_s), .by = c(model, n_estimators)) |>
+  mutate(model = inft_disp[model])
+inft_pass <- c2_grid |>
+  filter(fraud_ratio == 0.10, context_size_req == 50000) |>
+  summarise(per_pass = mean(predict_s / n_estimators), .by = model)
+inft_pass_icl <- inft_pass$per_pass[inft_pass$model == "tabiclv2"]
+inft_pass_v3 <- inft_pass$per_pass[inft_pass$model == "tabpfn_3"]
+
+inft_feat_incr <- c2_grid |>
+  filter(n_estimators == 4, context_size_req == 50000) |>
+  mutate(s_per_1k = predict_s / (n_test_scored / 1000),
+         width = ifelse(dataset %in% c("banksim", "paysim"),
+                        "narrow", "wide")) |>
+  summarise(s_per_1k = mean(s_per_1k), .by = c(model, dataset, width)) |>
+  summarise(s_per_1k = mean(s_per_1k), .by = c(model, width)) |>
+  tidyr::pivot_wider(names_from = width, values_from = s_per_1k) |>
+  mutate(incr = wide / narrow - 1)
+inft_incr_icl <- inft_feat_incr$incr[inft_feat_incr$model == "tabiclv2"]
+inft_incr_v3 <- inft_feat_incr$incr[inft_feat_incr$model == "tabpfn_3"]
+
+# Formal-grid rows (results/runs). bind_rows fails on the mixed-type
+# `metric` column, so select the needed columns per file (as in the
+# results chapter).
+inft_cols <- c("dataset", "model", "condition", "seed", "n_estimators",
+               "context_size", "n_test_scored", "fit_s", "predict_s")
+inft_runs <- list.files("results/runs", pattern = "\\.parquet$",
+                        full.names = TRUE) |>
+  lapply(\(f) nanoparquet::read_parquet(f)[, inft_cols]) |>
+  bind_rows()
+
+inft_ftms <- names(inft_disp)
+inft_models <- inft_runs |>
+  filter(dataset != "ai_banking", model %in% inft_ftms,
+         condition %in% c("C1", "C2")) |>
+  mutate(s_per_1k = predict_s / (n_test_scored / 1000)) |>
+  summarise(context = mean(context_size), s_per_1k = mean(s_per_1k),
+            fit_s = mean(fit_s), .by = model) |>
+  mutate(chunk = c(tabpfn_v2 = 2048, tabpfn_25 = 1024, tabpfn_26 = 1024,
+                   tabpfn_3 = 1024, tabiclv2 = 2048)[model],
+         model = inft_disp[model]) |>
+  arrange(s_per_1k)
+inft_r_25v3 <- inft_models$s_per_1k[inft_models$model == "TabPFN 2.5"] /
+  inft_models$s_per_1k[inft_models$model == "TabPFN v3"]
+inft_r_v3icl <- inft_models$s_per_1k[inft_models$model == "TabPFN v3"] /
+  inft_models$s_per_1k[inft_models$model == "TabICLv2"]
+inft_r_iclv2 <- inft_models$s_per_1k[inft_models$model == "TabICLv2"] /
+  inft_models$s_per_1k[inft_models$model == "TabPFN v2"]
+inft_r_v3v2 <- inft_models$s_per_1k[inft_models$model == "TabPFN v3"] /
+  inft_models$s_per_1k[inft_models$model == "TabPFN v2"]
+inft_r_sweep <- inft_at("TabPFN v3", 5e4, "s_per_1k") /
+  inft_at("TabICLv2", 5e4, "s_per_1k")
+
+inft_total <- inft_runs |>
+  filter(model %in% inft_ftms) |>
+  summarise(n = n(), hours = sum(fit_s + predict_s) / 3600)
+inft_xgb_fit <- inft_runs |>
+  filter(model == "xgboost", dataset != "ai_banking") |>
+  summarise(m = mean(fit_s)) |>
+  pull(m)
+
+# same-cell cross-directory comparison (tabpfn_3, banksim, 50k, n = 4)
+inft_xdir_grid <- inft_runs |>
+  filter(model == "tabpfn_3", dataset == "banksim", condition == "C2") |>
+  summarise(m = mean(predict_s)) |>
+  pull(m)
+inft_xdir_sweep <- c2_grid |>
+  filter(model == "tabpfn_3", dataset == "banksim", fraud_ratio == 0.10,
+         n_estimators == 4, context_size_req == 50000) |>
+  summarise(m = mean(predict_s)) |>
+  pull(m)
+inft_xdir_ratio <- inft_xdir_grid / inft_xdir_sweep
+
+cap_inftime_fig <- glue(
+  "Predict-time scaling in the sweep of @sec-app-c2-sweep (16,384-row ",
+  "predict chunks; absolute levels are not comparable to the formal grid). ",
+  "Left: mean predict seconds per 1,000 scored rows against requested ",
+  "context size at n_estimators = 4, averaged over the three sweep ",
+  "datasets, all ratios and seeds (log-log axes; the dashed line marks ",
+  "linear scaling). Right: mean predict seconds against ensemble passes at ",
+  "the 10 % ratio and 50,000-row context, averaged over all five formal ",
+  "datasets and seeds; per-pass cost is roughly constant at about ",
+  "{sprintf('%.1f', inft_pass_icl)} s (TabICLv2) and ",
+  "{sprintf('%.1f', inft_pass_v3)} s (TabPFN v3)."
+)
+```
+
+For a TFM essentially all compute happens at the prediction time. The gradient-boosted baselines invert this profile. They pay once at training XGBoost mean fit `r sprintf("%.1f", inft_xgb_fit)` s on the formal grid and then predict in milliseconds. (CatBoost was pinned to a single thread for stability in this pipeline, so its fit times are not representative and are omitted.) Summed over all `r inft_total$n` TFM runs in this thesis inference cost about `r sprintf("%.0f", inft_total$hours)` GPU-hours on the single consumer GPU throughout (NVIDIA RTX 5070, 12 GB VRAM).
+
+Two result sets supply the timings: the sweep of @sec-app-c2-sweep for the within-model scaling factors, and the formal experiment grid for the five-model comparison, restricted to conditions C1 and C2. C3/C4 rows record per-group sums under a different refitting regime and are excluded. Absolute times are not comparable between the two sets. The grid runner predicts in small GPU-memory chunks of 1,024 test rows for TabPFN 2.5, 2.6 and v3 and 2,048 for TabPFN v2 and TabICLv2, and every chunk re-encodes the fixed context. The sweep driver uses 16,384-row chunks, which amortise the context encoding over eight to sixteen times more rows, depending on the model. A near-identical cell (TabPFN v3, BankSim, 50,000-row context, n_estimators = 4; grid condition C2 against the sweep's 10 % ratio cell) costs `r sprintf("%.0f", inft_xdir_grid)` s in the grid against `r sprintf("%.0f", inft_xdir_sweep)` s in the sweep, roughly `r sprintf("%.0f", inft_xdir_ratio)`-fold more. Within-set comparisons remain valid; the grid times are conservative upper bounds on deployment cost, while the sweep times are closer to a throughput-oriented setting.
+
+Context size is the dominant driver, and its effect is superlinear as shown in the left panel of @fig-app-inftime. At 4 estimatros the mean predict time of TabPFN v3 rises from `r sprintf("%.1f", inft_at("TabPFN v3", 1e4))` s at a 10,000-row context to `r sprintf("%.0f", inft_at("TabPFN v3", 5e4))` s at 50,000 rows and `r sprintf("%.0f", inft_at("TabPFN v3", 2e5))` s at 200,000 rows. TabICLv2 rises from `r sprintf("%.1f", inft_at("TabICLv2", 1e4))` s to `r sprintf("%.0f", inft_at("TabICLv2", 5e4))` s and `r sprintf("%.0f", inft_at("TabICLv2", 2e5))` s over the same range. Quadrupling the context from 50,000 to 200,000 rows therefore costs about `r sprintf("%.0f", inft_ratio_v3)` times the predict time on TabPFN v3 and about `r sprintf("%.0f", inft_ratio_icl)` times on TabICLv2, well above the dashed linear reference in the figure.
+
+Ensemble size scales cleanly, shown in the right panel if @fig-app-inftime. At the 10 % ratio and 50,000-row context, predict time is linear in n_estimators with a roughly constant per-pass cost of about `r sprintf("%.1f", inft_pass_icl)` s for TabICLv2 and `r sprintf("%.1f", inft_pass_v3)` s for TabPFN v3. The accuracy side of this trade-off is in @sec-app-nest: the settled n = 4 halves predict time against the package default of 8 at a PR-AUC cost of at most about 0.006.
+
+Feature count matters far less. Per-row cost is normalised per 1,000 scored rows, since EU CC scores about 57,000 test rows against about 31,000 to 32,000 elsewhere. Moving from the 7-feature datasets to the 29- and 30-feature ones at the 50,000-row context then raises per-row cost by about `r pct(inft_incr_v3, 1)` for TabPFN v3 and `r pct(inft_incr_icl, 1)` for TabICLv2, with EU CC contributing most of the increase. The effect is modest next to context size.
+
+@tbl-app-inftime-models compares the five TFMs. TabPFN v2 is the cheapest per scored row, about `r sprintf("%.1f", inft_r_iclv2)` times below TabICLv2 and roughly `r sprintf("%.0f", inft_r_v3v2)` times below TabPFN v3, mostly because its checkpoint caps the context at 10,000 rows. At near-identical budgets TabPFN v3 costs about `r sprintf("%.1f", inft_r_v3icl)` times more per scored row than TabICLv2, though the differing predict chunks (1,024 against 2,048 rows) inflate this ratio. In the sweep, where both models share one chunk size, the same comparison at the 50,000-row context gives about `r sprintf("%.1f", inft_r_sweep)` times. TabPFN 2.5 and 2.6 run at the same budget and chunk size as v3 and still cost about `r sprintf("%.1f", inft_r_25v3)` times more, which suggests a genuinely heavier architecture rather than a chunking artifact. Given the caveats above, these ratios should be read as indicative.
+
+```{r}
+#| label: fig-app-inftime
+#| fig-cap: !expr cap_inftime_fig
+#| fig-width: 6.2
+#| fig-height: 3.4
+#| warning: false
+#| message: false
+
+inft_ref_a <- inft_at("TabICLv2", 1e4, "s_per_1k") / 1e4
+inft_ref <- data.frame(context_size_req = c(1e4, 2e5)) |>
+  mutate(s_per_1k = inft_ref_a * context_size_req)
+
+p_inft_ctx <- inft_ctx |>
+  ggplot(aes(context_size_req, s_per_1k, colour = model)) +
+  geom_line(data = inft_ref, aes(colour = NULL), linetype = "dashed",
+            colour = "grey55", linewidth = 0.4, show.legend = FALSE) +
+  annotate("text", x = 1.05e5, y = inft_ref_a * 1.05e5 * 0.55,
+           label = "linear (slope 1)", colour = "grey40", size = 2.6,
+           angle = 26) +
+  geom_line(linewidth = 0.6) +
+  geom_point(size = 1.2) +
+  scale_colour_manual(values = inft_col, name = NULL) +
+  scale_x_log10(breaks = c(1e4, 2e4, 5e4, 1e5, 2e5),
+                labels = label_number(scale = 1e-3, suffix = "k")) +
+  scale_y_log10() +
+  labs(x = "Requested context size (rows)",
+       y = "Predict s per 1,000 scored rows") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+
+p_inft_nest <- inft_nest |>
+  ggplot(aes(n_estimators, predict_s, colour = model)) +
+  geom_line(linewidth = 0.6) +
+  geom_point(size = 1.2) +
+  scale_colour_manual(values = inft_col, name = NULL) +
+  scale_x_continuous(breaks = c(1, 2, 4, 8, 10, 12)) +
+  labs(x = "Ensemble passes (n_estimators)", y = "Predict s") +
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+
+(p_inft_ctx | p_inft_nest) + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+```
+
+```{r}
+#| label: tbl-app-inftime-models
+#| tbl-cap: "Mean inference time per TFM over the formal-grid C1 and C2 runs. Absolute levels reflect the grid runner’s small predict chunks, which re-encode the context on every chunk."
+
+inft_models |>
+  select(model, context, chunk, s_per_1k, fit_s) |>
+  gt() |>
+  cols_label(
+    model = "Model",
+    context = "Context budget",
+    chunk = "Predict chunk",
+    s_per_1k = "Predict s / 1,000 rows",
+    fit_s = "Mean fit s"
+  ) |>
+  fmt_number(columns = c(context, chunk), decimals = 0, use_seps = TRUE) |>
+  fmt_number(columns = c(s_per_1k, fit_s), decimals = 2)
+```
