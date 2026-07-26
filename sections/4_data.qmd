@@ -156,7 +156,7 @@ ggplot(eu_cc, aes(V14, after_stat(density), fill = class)) +
   theme(legend.position = "bottom", panel.grid.minor = element_blank())
 ```
 
-Banksim shows the same pattern through an interpretable feature (@fig-banksim-amount-hist). In raw counts the fraud class is invisible under the imbalance; normalised per class, fraudulent amounts concentrate roughly an order of magnitude above typical legitimate spending, and the amount alone reaches a ROC-AUC of `r auc_of("banksim", "amount")`. In paysim the strongest single feature, the originating account balance, reaches `r auc_of("paysim", "oldbalanceOrg")`; its near-separability emerges only jointly with the transaction type, since all of its fraud occurs in transfers and cash-outs [@lopezrojas2016_paysim].
+Banksim shows the same pattern through an interpretable feature, the transaction amount plotted in @fig-banksim-amount-hist. In raw counts the fraud class is invisible under the imbalance; normalised per class, fraudulent amounts concentrate roughly an order of magnitude above typical legitimate spending, and the amount alone reaches a ROC-AUC of `r auc_of("banksim", "amount")`. In paysim the strongest single feature, the originating account balance, reaches `r auc_of("paysim", "oldbalanceOrg")`; its near-separability emerges only jointly with the transaction type, since all of its fraud occurs in transfers and cash-outs [@lopezrojas2016_paysim].
 
 ```{r}
 #| label: fig-banksim-amount-hist
