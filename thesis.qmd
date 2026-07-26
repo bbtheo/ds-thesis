@@ -67,9 +67,7 @@ execute:
 
 {{< include sections/7_discussion.qmd >}}
 
-{{< include sections/8_limitations_and_future.qmd >}}
-
-{{< include sections/9_conclusion.qmd >}}
+{{< include sections/8_conclusion.qmd >}}
 
 
 :::: {.content-visible when-format="html"}
