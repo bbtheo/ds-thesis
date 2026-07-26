@@ -16,7 +16,6 @@ library(scales)
 library(patchwork)
 library(gt)
 library(nanoparquet)
-library(ggpattern)
 
 prevalence <- read_csv(
   "data/external/dataset_fraud_prevalence.csv",

@@ -9,7 +9,9 @@ In this chapter we present the results of the tests that were outlined in @sec-m
 ```{r}
 #| label: results-setup
 #| include: false
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(scales)
 library(ggpattern)
 library(gt)
 
