@@ -156,16 +156,96 @@ cc_2025 |>
 
 All in all seems that there has been  
 
-# Time split ablations {#sec-app-second .appendix}
+# Time-split ablation {#sec-app-second .appendix}
 
-- forced 80/20 temporal splits on eu_cc, paysim, banksim 
-  - fifar already does this to baf
-  - run only on frintier ftm on the best setup for c2 
-  - statistical comparison between the C2 results an 
+```{r}
+#| label: ts-app-setup
+#| include: false
+
+ts_runs <- list.files("results/runs_timesplit", pattern = "\\.parquet$",
+                      full.names = TRUE) |>
+  lapply(nanoparquet::read_parquet) |>
+  bind_rows()
+
+# matched random-split control: the plateau-recipe cells of the sweep in
+# @sec-app-c2-sweep (10 % ratio, 50k request, n_estimators = 4, same models
+# and seeds). Loaded here independently of c2-app-setup because this section
+# renders first.
+ts_ctl <- list.files("results/runs_c2grid", pattern = "\\.parquet$",
+                     full.names = TRUE) |>
+  lapply(nanoparquet::read_parquet) |>
+  bind_rows() |>
+  filter(dataset %in% unique(ts_runs$dataset), fraud_ratio == 0.10,
+         context_size_req == 50000, n_estimators == 4)
+
+ts_disp <- c(tabiclv2 = "TabICLv2", tabpfn_3 = "TabPFN v3")
+
+ts_tbl <- ts_runs |>
+  summarise(ts_pr = mean(pr_auc), ts_sd = sd(pr_auc),
+            .by = c(dataset, model)) |>
+  left_join(ts_ctl |>
+              summarise(ctl_pr = mean(pr_auc), ctl_sd = sd(pr_auc),
+                        .by = c(dataset, model)),
+            by = c("dataset", "model")) |>
+  mutate(delta = ts_pr - ctl_pr,
+         verdict = case_when(ts_pr > ctl_pr + ctl_sd ~ "above",
+                             ts_pr < ctl_pr - ctl_sd ~ "below",
+                             .default = "inside"))
+
+ts_v <- function(d, m, col) ts_tbl[[col]][ts_tbl$dataset == d & ts_tbl$model == m]
+
+ts_split <- distinct(ts_runs, dataset, boundary_t, n_fraud_train, prevalence)
+ts_b <- function(d) ts_split$boundary_t[ts_split$dataset == d]
+ts_frauds <- function(d) ts_split$n_fraud_train[ts_split$dataset == d]
+ts_ps_prev <- ts_split$prevalence[ts_split$dataset == "paysim"]
+
+ts_eu_dup <- max(ts_runs$dup_factor[ts_runs$dataset == "eu_cc"])
+ts_bs_d <- mean(ts_tbl$delta[ts_tbl$dataset == "banksim"])
+ts_icl_rng <- range(ts_runs$pr_auc[ts_runs$dataset == "paysim" &
+                                     ts_runs$model == "tabiclv2"])
+ts_r5_floor <- min(c(
+  ts_runs$recall_at_5fpr[ts_runs$dataset != "eu_cc"],
+  ts_ctl$recall_at_5fpr[ts_ctl$dataset != "eu_cc"]))
+ts_r5_eu <- mean(ts_runs$recall_at_5fpr[ts_runs$dataset == "eu_cc"])
+ctl_r5_eu <- mean(ts_ctl$recall_at_5fpr[ts_ctl$dataset == "eu_cc"])
+```
+
+The experiments in this thesis evaluate eu_cc, banksim and paysim under random splits and deliberately keeps their native time columns as features, delivered in  @sec-methods-splits. This poses a clear temporal-leakage threat. The temporal regularities of @fig-fraud-rate-time are available to every model to 'memorise'. So the grid's figures might not survive a deployment-realistic protocol that trains on the past and scores the future. This ablation bounds the threat by forcing exactly such an experiment desing. Each of the three datasets is re-split at a time-value boundary, train being the first roughly 80 percent of rows by the native time column and the test being the rest of the data. Placing the boundary on a time value rather than a row rank guarantees that no timestamp straddles the split. The realised boundaries fall at second `r label_comma()(ts_b("eu_cc"))` of eu_cc's 172,792-second window, at step `r ts_b("banksim")` of banksim's 180 simulated days, and at step `r ts_b("paysim")` of paysim's 743 hourly steps, the last far below the 80 percent mark of the step range because paysim's transaction volume is front-loaded. baf dataset needs no forced split of its own as fifar is a temporally split variant of baf evaluated under its published protocol [@jesus2022baf_arxiv], so the grid already contains baf's temporal counterpart.
+
+Both frontier TFMs (TabPFN v3 and TabICLv2) rerun on the best performing recipe from @sec-app-c2-sweep unchanged on the temporal training side. A stratified-random context of 50 000 requested rows at a 10 percent fraud ratio, filled with the same with-replacement policy, with four estimators, at seeds 7, 42 and 123. The split itself is deterministic, so the seeds vary only the context subsample and the negative-cap test subsample. The time features are kept, which places every test-side time value outside the training range by construction. The measured change therefore bounds the combined effect of time-feature leakage and genuine temporal shift, which is the quantity the threat statement concerns. The control for this experiment is the same recipe under the random split, namely the 10 percent, 50 000-row cells of @sec-app-c2-sweep at the same seeds. The comparison rule is deliberately plain, if a temporal seed-mean inside the control's mean $\pm$ one standard deviation band counts as no measurable inflation, and a mean outside the band is read as the bound on the threat.
+
+The forced split changes more than the ordering, and three consequences must be kept in mind when reading @tbl-app-timesplit. Firstly,  it replaces banksim's grouped split. The main experiments assigns each customer wholly to one side of the split, as elaborated in @sec-methods-splits. While a temporal boundary necessarily lets customers straddle it, so banksim's temporal cell measures ordering and entity leakage together. Secondly, paysim's late test window is compositionally different by simulator construction, as @fig-fraud-rate-time shows, legitimate traffic thins out towards the end of the simulation, so the temporal test side carries a fraud prevalence of `r pct(ts_ps_prev)` against 0.13 percent overall, and the temporal training side holds only `r label_comma()(ts_frauds("paysim"))` unique frauds against roughly 6,570 under a random split. Thirdly, the duplication regime is matched where it matters, the eu_cc's temporal training side holds `r ts_frauds("eu_cc")` frauds against roughly 394 under the random split, so its 10 percent quota duplicates about `r round(ts_eu_dup)`-fold under both protocols, and duplication cannot explain an eu_cc difference.
+
+@tbl-app-timesplit gives the verdicts. On eu_cc both models land inside the control band, nominally lower by `r sprintf("%.3f", abs(ts_v("eu_cc", "tabpfn_3", "delta")))` to `r sprintf("%.3f", abs(ts_v("eu_cc", "tabiclv2", "delta")))` but well within the control's wide seed spread. Despite a kept time feature and a collection window of only two days, the random split shows no measurable temporal inflation. On banksim both models land above the band, by `r sprintf("%+.3f", ts_bs_d)` on average, meaning the temporal protocol scores higher than the random one. The direction is consistent with the removed customer grouping, since the encoded customer ID can act as a memorisation key across a temporal boundary, which is exactly what the grouped split exists to prevent. Paysim results split by model, TabPFN v3 stays inside the band at `r sprintf("%+.3f", ts_v("paysim", "tabpfn_3", "delta"))`, while TabICLv2 falls `r sprintf("%.3f", abs(ts_v("paysim", "tabiclv2", "delta")))` below it and its seed spread widens from `r sprintf("%.3f", ts_v("paysim", "tabiclv2", "ctl_sd"))` to `r sprintf("%.3f", ts_v("paysim", "tabiclv2", "ts_sd"))`. The split is deterministic and the seeds change only the context sample, so the widened spread means TabICLv2 becomes strongly context-sensitive under this shift while TabPFN v3 does not. 
+
+Summed up, the temporal-leakage threat to the main grid is bounded tightly. No measurable and persistent inflation across datasets and models could be identified.
+
+```{r}
+#| label: tbl-app-timesplit
+#| tbl-cap: "Temporal-split PR-AUC against the matched random-split control, per dataset and model. Both columns are seed means with one standard deviation over seeds {7, 42, 123} at the shared recipe (10 % fraud ratio, 50,000-row requested context, n_estimators = 4); the control cells are those of the sweep in @sec-app-c2-sweep. The verdict marks whether the temporal mean lies inside the control's mean $\pm$ sd band."
+
+ts_tbl |>
+  arrange(dataset, model) |>
+  mutate(dataset = c(banksim = "BankSim", eu_cc = "EU CC",
+                     paysim = "PaySim")[dataset],
+         model = ts_disp[model],
+         temporal = sprintf("%.3f ± %.3f", ts_pr, ts_sd),
+         control = sprintf("%.3f ± %.3f", ctl_pr, ctl_sd),
+         delta = sprintf("%+.3f", delta)) |>
+  select(dataset, model, temporal, control, delta, verdict) |>
+  gt(groupname_col = "dataset") |>
+  cols_label(
+    model = "Model",
+    temporal = "Temporal PR-AUC",
+    control = "Random-split PR-AUC",
+    delta = "Difference",
+    verdict = "Verdict"
+  )
+```
 
 # The fraud-ratio and context-size sweep {#sec-app-c2-sweep .appendix}
 
-Condition C2 fixes a single balancing target, but the choice of operating point matters as much as the mechanism itself. This sweep maps the stratified-random mechanism over the full plane of fraud ratio and context size, so the ratio effect can be characterised as a curve rather than read off a single point. It also gives the C4 ratio sweep (@sec-methods-conditions) a like-for-like counterpart at every ratio: one condition with retrieval, one without, both under the same with-replacement fraud policy.
+Condition C2 fixes a single balancing target, but the choice of operating point matters as much as the mechanism itself. This sweep maps the stratified-random mechanism over the full plane of fraud ratio and context size, so the ratio effect can be characterised as a curve rather than read off a single point. It also gives the C4 ratio sweep of @sec-methods-conditions a like-for-like counterpart at every ratio: one condition with retrieval, one without, both under the same with-replacement fraud policy.
 
 The core sweep crosses nine fraud ratios (2, 4, 5, 6, 8, 10, 20, 30 and 40 percent) with five requested context sizes (10,000, 20,000, 30,000, 40,000 and 50,000 rows). An extension run on 2026-07-20 adds requested sizes of 100,000 and 200,000 rows at the four ratios shared with the core sweep (2, 5, 10 and 20 percent), through the same driver and the same fraud policy. The effective context size is capped at the smaller of the training-set size and the model's checkpoint limit, and both the requested and the effective size are recorded; only EU CC approaches this cap, its training split of about 228,000 rows nearly saturating the 200,000-row request. Two TFMs (TabICLv2 and TabPFN v3) are run on three datasets (EU CC, BankSim and PaySim), each at three seeds, with the same ensemble size (n_estimators = 4) as the main grid, for 810 core runs and 144 extension runs. Each cell fits a single global context and one model refit; there is no per-group retrieval or refitting here, unlike C3/C4. At the extended sizes TabPFN v3 stays in-spec: its checkpoint accepts 1,000,000 rows, so the 50,000-row budget of the main grid is a design choice rather than the model cap. TabICLv2 has no hard cap, but 48,000 rows is its pre-training upper bound, so its 100,000- and 200,000-row cells measure extrapolation beyond the pre-training range and must be read as such. These three datasets span the fraud-scarcity range of the formal grid: EU CC holds only about 394 training fraud rows, while BankSim and PaySim hold thousands of them, a difference that matters for the next point.
 
