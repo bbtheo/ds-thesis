@@ -222,7 +222,7 @@ Summed up, the temporal-leakage threat to the main grid is bounded tightly. No m
 
 ```{r}
 #| label: tbl-app-timesplit
-#| tbl-cap: "Temporal-split PR-AUC against the matched random-split control, per dataset and model. Both columns are seed means with one standard deviation over seeds {7, 42, 123} at the shared recipe (10 % fraud ratio, 50,000-row requested context, n_estimators = 4); the control cells are those of the sweep in @sec-app-c2-sweep. The verdict marks whether the temporal mean lies inside the control's mean pm sd band."
+#| tbl-cap: "Temporal-split PR-AUC against the matched random-split control, per dataset and model. Both columns are seed means with one standard deviation over seeds {7, 42, 123} at the shared recipe (10 % fraud ratio, 50,000-row requested context, n_estimators = 4); the control cells are those of the sweep in @sec-app-c2-sweep. The verdict marks whether the temporal mean lies inside the control's mean ± sd band."
 
 ts_tbl |>
   arrange(dataset, model) |>
