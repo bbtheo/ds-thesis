@@ -24,7 +24,6 @@ One property shared by these metrics carries argumentative weight later in the t
 
 ## Tabular machine learning and gradient-boosted trees {#sec-bg-gbdt}
 
-<!-- TODO: should there be note about how since ancient babylon has data reside on tabular form -->
 
 Tabular data is organised into rows of observations and columns of features. The features are heterogeneous and can be both numerical and categorical. Each column carries its own meaning and distribution of values, which can vary wildly. This heterogeneity separates tabular learning from vision and language, where deep learning has long dominated. On tabular data, tree-based models have remained the state of the art [@grinsztajn2022why_tree_based]. A systematic benchmark attributes the gap to properties of the data itself. Tabular target functions are irregular rather than smooth, many features are uninformative, and the informative signal is aligned with the original feature axes, all of which favour axis-aligned trees over neural networks [@grinsztajn2022why_tree_based].
 
