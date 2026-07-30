@@ -146,15 +146,15 @@ The positive finding also extends prior work. @tanna2026data_presentation_resamp
 
 The decomposition above translates into four research questions.
 
-**RQ1.** How do tabular foundation models, restricted to a randomly subsampled context, compare with gradient-boosted decision trees trained on the full training data?
+**Research question 1.** How do tabular foundation models, restricted to a randomly subsampled context, compare with gradient-boosted decision trees trained on the full training data?
 
-**RQ2.** Does controlling the fraud ratio of the context improve foundation-model performance over the natural ratio, and if so, is there an optimal ratio?
+**Research question 2.** Does controlling the fraud ratio of the context improve foundation-model performance over the natural ratio, and if so, is there an optimal ratio?
 
-**RQ3.** Does filling the context with retrieved rows that are structurally similar to the scored transactions improve performance over a random context?
+**Research question 3.** Does filling the context with retrieved rows that are structurally similar to the scored transactions improve performance over a random context?
 
-**RQ4.** How do the two channels interact, does combining retrieval with ratio control add anything beyond either lever alone?
+**Research question 4.** How do the two channels interact, does combining retrieval with ratio control add anything beyond either lever alone?
 
-RQ1 establishes the baseline comparison against the dominant model family for tabular data. RQ2 and RQ3 evaluate the two levers of @sec-intro-rap in isolation, and RQ4 evaluates their combination the full RAP method.
+The first question establishes the baseline comparison against the dominant model family for tabular data. The second and third evaluate the two levers of @sec-intro-rap in isolation, and the fourth evaluates their combination, the full RAP method.
 
 ## Outline of the thesis {#sec-intro-outline}
 
