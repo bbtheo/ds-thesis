@@ -2,7 +2,7 @@
 bibliography: ../thesis-refs.bib
 ---
 
-# CC_2025 as a cautionary tale {#sec-app-cc .appendix}
+# Degeneracy of the cc_2025 dataset {#sec-app-cc .appendix}
 
 ```{r}
 #| label: cc-app-setup
@@ -30,6 +30,41 @@ cc_rate <- mean(cc_2025$fraud_flag)
 cc_country <- summarise(cc_2025, rate = mean(fraud_flag), .by = country)
 cc_country_p <- chisq.test(table(cc_2025$country, cc_2025$fraud_flag))$p.value
 cc_type_p <- chisq.test(table(cc_2025$transaction_type, cc_2025$fraud_flag))$p.value
+cc_amt <- tapply(cc_2025$amount, cc_2025$fraud_flag, mean)
+
+# per-customer country-hopping: the sample ships the identifier columns, so
+# customers are reconstructable even though the models never see the IDs.
+# cc_ctry_exp = expected distinct countries if each transaction's country is
+# an independent uniform draw over the 8 countries, at each customer's own
+# transaction count
+cc_cust <- summarise(cc_2025, tx = n(), n_ctry = n_distinct(country),
+                     .by = customer_id)
+cc_ctry_exp <- mean(8 * (1 - (7 / 8)^cc_cust$tx))
+
+# feature-wise independence tests against the label: chi-squared for the
+# categorical and binary features, two-sample Kolmogorov-Smirnov for the
+# continuous ones (the rounded amounts produce ties, hence the suppressed
+# approximate-p warning; immaterial at n = 500,000)
+cc_cat <- c("merchant_category", "card_type", "transaction_type", "country",
+            "device_type", "is_international", "is_chip", "is_pin_used")
+cc_num <- c("amount", "distance_from_home", "hour_of_day")
+cc_p_all <- c(
+  sapply(cc_cat, \(v) chisq.test(table(cc_2025[[v]], cc_2025$fraud_flag))$p.value),
+  sapply(cc_num, \(v) suppressWarnings(
+    ks.test(cc_2025[[v]][cc_2025$fraud_flag == 1],
+            cc_2025[[v]][cc_2025$fraud_flag == 0])$p.value))
+)
+cc_p_min <- min(cc_p_all)
+
+# the archived cc_2025 grid runs (results/runs_cc2025_degenerate; kept as
+# documentation of the degeneracy after the dataset was dropped)
+cc_runs <- list.files("results/runs_cc2025_degenerate", pattern = "\\.parquet$",
+                      full.names = TRUE) |>
+  lapply(\(f) nanoparquet::read_parquet(f)[, c("model", "condition",
+                                               "pr_auc", "roc_auc")]) |>
+  bind_rows()
+cc_pr_rng <- range(cc_runs$pr_auc)
+cc_roc_rng <- range(cc_runs$roc_auc)
 
 pct <- function(x, acc = 0.01) percent(x, accuracy = acc, suffix = " %")
 
@@ -49,7 +84,9 @@ cap_cc_type <- glue(
 )
 ```
 
-- the labels seem to be statistically independent on every single feature.
+Why should the CC_2025 dataset be rejected from the evalutions [@rajak2025credit_card_fraud_2025]? First of all, there is no statistical difference between fraudulend and legtimate transactions. Both have the same average amount (`r sprintf("%.1f", cc_amt["1"])` against `r sprintf("%.1f", cc_amt["0"])`) and occurs at the same distance from the cardholder's home. No country is riskier than another. @fig-app-cc-country shows the per-country fraud rates spanning only `r pct(min(cc_country$rate))` to `r pct(max(cc_country$rate))` around the global `r pct(cc_rate, 0.1)`. @fig-app-cc-type shows ATM, online and point-of-sale transactions to be fraudulent at rates identical to two decimal places, and in the hourly profile of @fig-app-cc-day, fraud at four in the morning is no more common than fraud at noon. Nothing in the data distinguishes the two classes. The fraud flag behaves as if it were attached to each transaction by an independent coin flip of probability `r pct(cc_rate, 0.1)`.
+
+Formal tests confirm this impression feature by feature. For each of the eight categorical and binary features, a chi-squared test of the feature-label contingency table finds no association; for the three continuous features (amount, distance from home and hour of day), a two-sample Kolmogorov-Smirnov test finds no difference between the fraud and non-fraud distributions. The smallest p-value over all eleven tests is `r sprintf("%.2f", cc_p_min)` (device type), unremarkable among eleven tests under the null. At half a million rows these tests would detect minuscule real effects, so the absence of signal is not a power problem. The labels are statistically independent of every feature.
 
 ```{r}
 #| label: fig-app-cc-country
@@ -70,6 +107,8 @@ cc_country |>
   theme(panel.grid.minor = element_blank(),
         panel.grid.major.x = element_blank())
 ```
+
+The degeneracy extends beyond the labels to the generative process itself. @fig-app-cc-day shows the hourly structure: transaction volume is uniform over the day, and the fraud rate of every transaction type fluctuates only within sampling noise around the global rate. The informative datasets of the formal grid behave nothing like this; @fig-fraud-rate-time in the data chapter shows their fraud shares drifting, spiking and cycling over their native time columns. The uniformity recurs in every marginal: the three transaction types and the three device types each cover almost exactly a third of the rows, a giveaway that the columns were sampled independently from flat distributions rather than generated by any transaction process.
 
 ```{r}
 #| label: fig-app-cc-day
@@ -130,9 +169,11 @@ cc_2025 |>
 ```
 
 
+Independent column-wise sampling also produces internal contradictions that no real payment system could emit. The customer identifier makes this vivid. The `r label_comma()(nrow(cc_cust))` customers place `r sprintf("%.1f", mean(cc_cust$tx))` transactions each on average, and those few transactions visit `r sprintf("%.2f", mean(cc_cust$n_ctry))` of the eight countries on average, matching to two decimals the `r sprintf("%.2f", cc_ctry_exp)` expected if every transaction's country were an independent uniform draw. The typical cardholder thus hops between four countries within a handful of purchases, yet only `r pct(mean(cc_2025$is_international), 1)` of transactions carry the international flag, because that column too is sampled independently of everything else. @tbl-app-cc-device shows the same incoherence in the payment mechanics, crossing device type with the chip and PIN indicators. Every chip/PIN combination holds an identical share within each device type, including chip use recorded for about 30 % of Web transactions, although a physical chip read cannot occur in a browser. The fraud rate is flat across all twelve cells. A dataset whose columns contradict each other in this way cannot encode a joint distribution for a model to learn, whatever its label quality.
+
 ```{r}
 #| label: tbl-app-cc-device
-#| tbl-cap: "Chip and PIN usage by device type (exact full-data counts; cc_2025 is shipped whole in data/sample/). The share of every chip/PIN combination is identical across device types, including chip use recorded for about a quarter of Web transactions, and the fraud rate is flat across all twelve cells."
+#| tbl-cap: "Chip and PIN usage by device type (exact full-data counts; cc_2025 is shipped whole in data/sample/). The share of every chip/PIN combination is identical across device types, including chip use recorded for about 30 % of Web transactions, and the fraud rate is flat across all twelve cells."
 
 cc_2025 |>
   summarise(n = n(), rate = mean(fraud_flag),
@@ -154,7 +195,7 @@ cc_2025 |>
   fmt_percent(columns = c(share, rate), decimals = 1)
 ```
 
-All in all seems that there has been  
+Taken together, the evidence supports a simple account of how the dataset was made: each column, the fraud flag included, was drawn independently from its own marginal distribution. Under that construction no model can be better than chance. The cautionary tale is aimed at benchmark selection. The dataset is publicly distributed, superficially plausible, and passes every casual inspection: realistic column names, sensible value ranges, a credible 1.5 % fraud rate. Its degeneracy only becomes visible on contact, through independence tests that cost seconds, or through model runs that could cost hours. Any above-chance result reported on this dataset can therefore only reflect an evaluation error, such as target leakage or duplicated rows across the train-test split, and results published on unaudited synthetic benchmarks should be read with that possibility in mind. The pre-flight checks demonstrated here, per-feature association tests against the label and a scan of the marginals for implausible uniformity, are cheap enough to run before any compute is spent, and this study now applies them as a standing admission criterion for benchmark data.
 
 # Time-split ablation {#sec-app-second .appendix}
 
@@ -365,8 +406,7 @@ The extension answers the budget question directly: relaxing the 50,000-row desi
 - Within each unit the context rows are identical across n_estimators values (the sampling RNG does not include it), so the sweep isolates the effect of ensembling on a fixed context.
 - Curves are flat from n = 2 upward and saturate by n = 8. The main grid's settled n_estimators = 4 gives up at most about 0.006 PR-AUC against n = 8 (EU CC / TabPFN v3), typically at most 0.002; n = 10 and n = 12 add nothing over n = 8.
 - n = 1 is visibly worse where ensembling matters: PaySim / TabICLv2 at 0.966 against 0.980 at saturation, EU CC / TabPFN v3 at 0.813 against about 0.827.
-- Predict time scales roughly linearly with n_estimators, so the settled n = 4 halves inference cost against the package default of 8 at negligible accuracy cost.
-- TODO: quantify the accuracy-cost trade-off with the recorded fit_s / predict_s columns.
+- Predict time scales roughly linearly with n_estimators, so the settled n = 4 halves inference cost against the package default of 8 at negligible accuracy cost; @sec-app-inference quantifies this trade-off with the recorded timing columns.
 
 ```{r}
 #| label: nest-setup
