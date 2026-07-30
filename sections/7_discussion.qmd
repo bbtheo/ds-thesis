@@ -55,7 +55,7 @@ The statistical power is modest. Most cells carry three seeds per dataset, fifar
 
 Time columns are kept as features under a random split, which is a temporal-leakage threat that may inflate the ranking metrics of the separable datasets. The time-split ablation in @sec-app-second bounds this threat. One observation points the same way is fifar, a subset of baf evaluated on its canonical temporal split, scores higher than baf itself under the random split. The whole performance can be found from @tbl-rq4-pivot.
 
-The positive rebalancing finding partly replictaes the findings of @tanna2026data_presentation_resampling, who report that balanced resampled contexts help tabular foundation models on imbalanced credit data. The novelty of the findings is the heavier imbalance regime, the threshold-free ranking metrics and the C1 to C4 decomposition.
+The positive rebalancing finding partly replictaes the findings of @tanna2026data_presentation_resampling, who report that balanced resampled contexts help tabular foundation models on imbalanced credit data. The novelty of the findings is the heavier imbalance regime, the threshold-free ranking metrics and the four-condition decomposition from random baseline to full RAP.
 
 The GBDT baselines run at fixed strong defaults, not per-dataset tuning, so the comparison is a zero-shot TFM against fixed-default trees rather than against tuned state-of-the-art trees. A comparison against tuned models is instead delegated to the external results fetched from the literature in @sec-results-sota, which brings its own comparability limits.
 
