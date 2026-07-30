@@ -402,12 +402,6 @@ The extension answers the budget question directly: relaxing the 50,000-row desi
 
 # Ensemble size sweep {#sec-app-nest .appendix}
 
-- n_estimators swept over {1, 2, 4, 8, 10, 12} at the fixed plateau recipe (10 percent fraud ratio, 50,000-row context), both TFMs, all five formal datasets (13 dataset-seed units, 156 cells; the n = 4 cells are shared with the sweep of @sec-app-c2-sweep). Run 2026-07-20.
-- Within each unit the context rows are identical across n_estimators values (the sampling RNG does not include it), so the sweep isolates the effect of ensembling on a fixed context.
-- Curves are flat from n = 2 upward and saturate by n = 8. The main grid's settled n_estimators = 4 gives up at most about 0.006 PR-AUC against n = 8 (EU CC / TabPFN v3), typically at most 0.002; n = 10 and n = 12 add nothing over n = 8.
-- n = 1 is visibly worse where ensembling matters: PaySim / TabICLv2 at 0.966 against 0.980 at saturation, EU CC / TabPFN v3 at 0.813 against about 0.827.
-- Predict time scales roughly linearly with n_estimators, so the settled n = 4 halves inference cost against the package default of 8 at negligible accuracy cost; @sec-app-inference quantifies this trade-off with the recorded timing columns.
-
 ```{r}
 #| label: nest-setup
 #| include: false
@@ -416,7 +410,23 @@ nest_cells <- c2_grid |>
   filter(fraud_ratio == 0.10, context_size_req == 50000) |>
   summarise(pr_auc = mean(pr_auc), .by = c(dataset, model, n_estimators)) |>
   mutate(model = c(tabiclv2 = "TabICLv2", tabpfn_3 = "TabPFN v3")[model])
+
+nest_v <- function(d, m, n) {
+  sprintf("%.3f", nest_cells$pr_auc[nest_cells$dataset == d &
+                                      nest_cells$model == m &
+                                      nest_cells$n_estimators == n])
+}
+nest_gap <- nest_cells |>
+  summarise(gap = pr_auc[n_estimators == 8] - pr_auc[n_estimators == 4],
+            .by = c(dataset, model))
+nest_gap_max <- max(nest_gap$gap)
 ```
+
+The main experiments have capped the number of ensemble passes at n_estimators = 4, a settled design choice for tractability and keeping the GPU-usage lower than having multiple estimators. This sweep verifies that the choice didn't have substantial effects to the performance of the models. It crosses n_estimators over 1, 2, 4, 8, 10 and 12 at the fixed plateau recipe of @sec-app-c2-sweep (10 percent fraud ratio, 50,000-row requested context), on both of the frontier TFMs and all five formal datasets. The original n = 4 cells are shared with the sweep. Within each dataset-seed unit the context rows are identical across n_estimators values, since the sampling does not depend on it, so the sweep isolates the effect of ensembling on a fixed context.
+
+@fig-app-nest shows the outcome. The curves are relatively flat from n = 2 upward and saturate by n = 8. The further increases of n = 10 and n = 12 add virtually nothing performancewise. The settled n = 4 gives up at most about `r sprintf("%.3f", nest_gap_max)` PR-AUC against n = 8 (EU CC with TabPFN v3) and typically at most 0.002. Only a single pass is visibly worse where ensembling matters. On PaySim, TabICLv2 scores `r nest_v("paysim", "TabICLv2", 1)` at n = 1 against `r nest_v("paysim", "TabICLv2", 8)` at saturation of n = 8, and on EU CC, TabPFN v3 scores `r nest_v("eu_cc", "TabPFN v3", 1)` against `r nest_v("eu_cc", "TabPFN v3", 8)` respecticely.
+
+Predict time scales roughly linearly with n_estimators, so the settled n = 4 halves inference cost against the package default of 8 at a negligible accuracy cost. @sec-app-inference quantifies this trade-off with the recorded timing columns.
 
 ```{r}
 #| label: fig-app-nest
