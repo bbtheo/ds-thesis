@@ -14,7 +14,7 @@ library(dplyr)
 library(readr)
 library(scales)
 library(patchwork)
-library(gt)
+library(tinytable)
 library(nanoparquet)
 
 prevalence <- read_csv(
@@ -101,26 +101,30 @@ counts <- prevalence |>
   select(dataset, n_rows, n_fraud) |>
   bind_rows(tibble(dataset = "ai_banking", n_rows = 10000, n_fraud = 2838))
 
-manifest |>
+tbl <- manifest |>
   left_join(counts, by = "dataset") |>
   left_join(select(best_prauc, dataset, best_pr_auc), by = "dataset") |>
-  mutate(fraud_share = n_fraud / n_rows) |>
+  mutate(fraud_share = 100 * n_fraud / n_rows) |>
   select(group, dataset, type, n_rows, n_features, n_fraud,
-         fraud_share, best_pr_auc) |>
-  gt(groupname_col = "group") |>
-  cols_label(
-    dataset = "Dataset",
-    type = "Type",
-    n_rows = "Rows",
-    n_features = "Features",
-    n_fraud = "Fraud cases",
-    fraud_share = "Fraud share",
-    best_pr_auc = "Best PR-AUC"
-  ) |>
-  fmt_number(columns = c(n_rows, n_fraud), decimals = 0, use_seps = TRUE) |>
-  fmt_percent(columns = fraud_share, decimals = 2) |>
-  fmt_number(columns = best_pr_auc, decimals = 3) |>
-  sub_missing(columns = best_pr_auc, missing_text = "-")
+         fraud_share, best_pr_auc)
+
+# gt was mangled by the Quarto HTML-to-Typst conversion; tinytable
+# emits native Typst. group_tt needs the first row index of each group.
+group_starts <- as.list(match(unique(tbl$group), tbl$group))
+names(group_starts) <- unique(tbl$group)
+
+tbl |>
+  select(-group) |>
+  setNames(c("Dataset", "Type", "Rows", "Features", "Fraud cases",
+             "Fraud share", "Best PR‑AUC")) |>
+  tt() |>
+  group_tt(i = group_starts) |>
+  format_tt(j = c(3, 5), digits = 0, num_mark_big = ",", num_fmt = "decimal") |>
+  format_tt(j = 6, fn = function(x) sprintf("%.2f %%", x)) |>
+  format_tt(j = 7, digits = 3, num_fmt = "decimal", num_zero = TRUE,
+            replace = "-") |>
+  style_tt(j = 3:7, align = "r") |>
+  style_tt(i = "groupi", bold = TRUE)
 ```
 
 

@@ -107,6 +107,11 @@
     leading: 0.65em * 1.241, // onehalfspacing for 12pt
   )
 
+  // Table cells are too narrow for justified text: it produces ugly
+  // mid-word hyphen breaks, so rag right and disable hyphenation there.
+  show table: set par(justify: false)
+  show table: set text(hyphenate: false)
+
   // Heading styles
   set heading(numbering: "1.1")
 

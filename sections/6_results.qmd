@@ -13,7 +13,7 @@ library(dplyr)
 library(ggplot2)
 library(scales)
 library(ggpattern)
-library(gt)
+library(tinytable)
 
 runs <- list.files("results/runs", pattern = "\\.parquet$", full.names = TRUE) |>
   lapply(\(f) select(nanoparquet::read_parquet(f), dataset, model, condition, seed,
@@ -435,20 +435,17 @@ Research question 4 asks whether the full RAP pipeline, which combines kNN retri
 #| tbl-cap: "Seed-matched PR-AUC by context-construction condition. Each value is the better of TabPFN v3 and TabICLv2, averaged over the seeds RAP ran; the RAP column takes the best swept fraud ratio per dataset. This selection favours RAP, which still loses to stratified balancing everywhere. FiFAR rests on its single split."
 
 rq4_piv |>
-  mutate(across(c(C1, C3, C4best), \(x) sprintf("%.3f", x)),
-         C2 = sprintf("**%.3f**", C2),
+  mutate(across(c(C1, C2, C3, C4best), \(x) sprintf("%.3f", x)),
          best = dplyr::recode(best, "C1" = "Random", "C2" = "Stratified",
                               "C3" = "kNN", "C4" = "RAP",
                               "C2 ≈ C1" = "Stratified ≈ Random")) |>
   select(dataset, C1, C2, C3, C4best, best) |>
-  gt() |>
-  fmt_markdown(columns = C2) |>
-  cols_label(dataset = "Dataset", C1 = "Random", C2 = "Stratified",
-             C3 = "kNN", C4best = "RAP (best ratio)",
-             best = "Best strategy") |>
-  cols_align("left", columns = dataset) |>
-  cols_align("right", columns = c(C1, C2, C3, C4best)) |>
-  cols_align("center", columns = best)
+  setNames(c("Dataset", "Random", "Stratified", "kNN",
+             "RAP (best ratio)", "Best strategy")) |>
+  tt() |>
+  style_tt(j = 3, bold = TRUE) |>
+  style_tt(j = 2:5, align = "r") |>
+  style_tt(j = 6, align = "c")
 ```
 
 The deployed pipeline is partly held back by its grouping. As previously @sec-results-rq3 showed, the automatic silhouette choice picks too few groups, so retrieval concentrates around a nearly global centroid. The design-space sweep of @sec-methods-grid supplies the missing information by forcing the group count and sweeping the fraud ratio and the distance metric on the three separable datasets. @fig-rq4-sweep-heatmap maps the full space. We can see that both models perform similarly, so the baheviour is not model specific.

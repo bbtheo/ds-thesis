@@ -18,7 +18,7 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(scales)
   library(patchwork)
-  library(gt)
+  library(tinytable)
   library(glue)
   library(nanoparquet)
 })
@@ -175,24 +175,28 @@ Independent column-wise sampling also produces internal contradictions that no r
 #| label: tbl-app-cc-device
 #| tbl-cap: "Chip and PIN usage by device type (exact full-data counts; cc_2025 is shipped whole in data/sample/). The share of every chip/PIN combination is identical across device types, including chip use recorded for about 30 % of Web transactions, and the fraud rate is flat across all twelve cells."
 
-cc_2025 |>
+cc_device <- cc_2025 |>
   summarise(n = n(), rate = mean(fraud_flag),
             .by = c(device_type, is_chip, is_pin_used)) |>
   mutate(share = n / sum(n), .by = device_type) |>
   arrange(device_type, is_chip, is_pin_used) |>
   mutate(across(c(is_chip, is_pin_used),
                 \(x) ifelse(x == 1, "Yes", "No"))) |>
-  select(device_type, is_chip, is_pin_used, n, share, rate) |>
-  gt(groupname_col = "device_type") |>
-  cols_label(
-    is_chip = "Chip",
-    is_pin_used = "PIN",
-    n = "Rows",
-    share = "Share",
-    rate = "Fraud rate"
-  ) |>
-  fmt_number(columns = n, decimals = 0, use_seps = TRUE) |>
-  fmt_percent(columns = c(share, rate), decimals = 1)
+  select(device_type, is_chip, is_pin_used, n, share, rate)
+
+cc_device_groups <- as.list(match(unique(cc_device$device_type),
+                                  cc_device$device_type))
+names(cc_device_groups) <- unique(cc_device$device_type)
+
+cc_device |>
+  select(-device_type) |>
+  setNames(c("Chip", "PIN", "Rows", "Share", "Fraud rate")) |>
+  tt() |>
+  group_tt(i = cc_device_groups) |>
+  format_tt(j = 3, digits = 0, num_mark_big = ",", num_fmt = "decimal") |>
+  format_tt(j = 4:5, fn = function(x) sprintf("%.1f %%", 100 * x)) |>
+  style_tt(j = 3:5, align = "r") |>
+  style_tt(i = "groupi", bold = TRUE)
 ```
 
 Taken together, the evidence supports a simple account of how the dataset was made: each column, the fraud flag included, was drawn independently from its own marginal distribution. Under that construction no model can be better than chance. The cautionary tale is aimed at benchmark selection. The dataset is publicly distributed, superficially plausible, and passes every casual inspection: realistic column names, sensible value ranges, a credible 1.5 % fraud rate. Its degeneracy only becomes visible on contact, through independence tests that cost seconds, or through model runs that could cost hours. Any above-chance result reported on this dataset can therefore only reflect an evaluation error, such as target leakage or duplicated rows across the train-test split, and results published on unaudited synthetic benchmarks should be read with that possibility in mind. The pre-flight checks demonstrated here, per-feature association tests against the label and a scan of the marginals for implausible uniformity, are cheap enough to run before any compute is spent, and this study now applies them as a standing admission criterion for benchmark data.
@@ -265,7 +269,7 @@ Summed up, the temporal-leakage threat to the main grid is bounded tightly. No m
 #| label: tbl-app-timesplit
 #| tbl-cap: "Temporal-split PR-AUC against the matched random-split control, per dataset and model. Both columns are seed means with one standard deviation over seeds {7, 42, 123} at the shared recipe (10 % fraud ratio, 50,000-row requested context, n_estimators = 4); the control cells are those of the sweep in @sec-app-c2-sweep. The verdict marks whether the temporal mean lies inside the control's mean ± sd band."
 
-ts_tbl |>
+ts_disp_tbl <- ts_tbl |>
   arrange(dataset, model) |>
   mutate(dataset = c(banksim = "BankSim", eu_cc = "EU CC",
                      paysim = "PaySim")[dataset],
@@ -273,15 +277,19 @@ ts_tbl |>
          temporal = sprintf("%.3f ± %.3f", ts_pr, ts_sd),
          control = sprintf("%.3f ± %.3f", ctl_pr, ctl_sd),
          delta = sprintf("%+.3f", delta)) |>
-  select(dataset, model, temporal, control, delta, verdict) |>
-  gt(groupname_col = "dataset") |>
-  cols_label(
-    model = "Model",
-    temporal = "Temporal PR-AUC",
-    control = "Random-split PR-AUC",
-    delta = "Difference",
-    verdict = "Verdict"
-  )
+  select(dataset, model, temporal, control, delta, verdict)
+
+ts_groups <- as.list(match(unique(ts_disp_tbl$dataset), ts_disp_tbl$dataset))
+names(ts_groups) <- unique(ts_disp_tbl$dataset)
+
+ts_disp_tbl |>
+  select(-dataset) |>
+  setNames(c("Model", "Temporal PR‑AUC", "Random‑split PR‑AUC",
+             "Difference", "Verdict")) |>
+  tt() |>
+  group_tt(i = ts_groups) |>
+  style_tt(j = 2:4, align = "r") |>
+  style_tt(i = "groupi", bold = TRUE)
 ```
 
 # The fraud-ratio and context-size sweep {#sec-app-c2-sweep .appendix}
@@ -640,14 +648,10 @@ p_inft_nest <- inft_nest |>
 
 inft_models |>
   select(model, context, chunk, s_per_1k, fit_s) |>
-  gt() |>
-  cols_label(
-    model = "Model",
-    context = "Context budget",
-    chunk = "Predict chunk",
-    s_per_1k = "Predict s / 1,000 rows",
-    fit_s = "Mean fit s"
-  ) |>
-  fmt_number(columns = c(context, chunk), decimals = 0, use_seps = TRUE) |>
-  fmt_number(columns = c(s_per_1k, fit_s), decimals = 2)
+  setNames(c("Model", "Context budget", "Predict chunk",
+             "Predict s / 1,000 rows", "Mean fit s")) |>
+  tt() |>
+  format_tt(j = 2:3, digits = 0, num_mark_big = ",", num_fmt = "decimal") |>
+  format_tt(j = 4:5, digits = 2, num_fmt = "decimal", num_zero = TRUE) |>
+  style_tt(j = 2:5, align = "r")
 ```
