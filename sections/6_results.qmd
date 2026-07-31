@@ -589,25 +589,64 @@ stopifnot(sota_pool$lo[sota_pool$model == "tabpfn_3"] < ext_eucc,
 
 This final subchapter benchmarks the strongest TFM results of this study against the strongest published results on the same datasets. The comparison is restricted to methodologically sound external work. We accept an external figure as a benchmark only if it reports an imbalance-aware metric, keeps the test set at its natural class ratio and applies any resampling strictly inside the training partition. Much of the published literature on these datasets fails one or more of these filters. These publications usually then produce report near-perfect figures, AUPRC or ROC-AUC of 0.99 and above. This unrealistic performance typically is a result from rebalancing the test set or from applying SMOTE [@chawla2002smote] before splitting. @tbl-sota-comparison collects, per dataset, our collected metrics for both frontier TFM models separately in their best-case configuration, next to the best verified external figures on the metrics their sources report.
 
-| Dataset | Model | PR-AUC | R@1%FPR | R@5%FPR | ROC-AUC |
-|:--|:--|--:|--:|--:|--:|
-| eu_cc | TabPFN v3 | `r sota_pool_of("tabpfn_3", "ap")` | `r sota_pool_of("tabpfn_3", "r1")` | `r sota_pool_of("tabpfn_3", "r5")` | `r sota_pool_of("tabpfn_3", "roc")` |
-| | TabICLv2 | `r sota_pool_of("tabiclv2", "ap")` | `r sota_pool_of("tabiclv2", "r1")` | `r sota_pool_of("tabiclv2", "r5")` | `r sota_pool_of("tabiclv2", "roc")` |
-| | External [@andradearenas2025smote_credit_card_comparison] | 0.871 | | | 0.978 |
-| banksim | TabPFN v3 | `r sota_m_of("banksim", "tabpfn_3", "pr")` | `r sota_m_of("banksim", "tabpfn_3", "r1")` | `r sota_m_of("banksim", "tabpfn_3", "r5")` | `r sota_m_of("banksim", "tabpfn_3", "roc")` |
-| | TabICLv2 | `r sota_m_of("banksim", "tabiclv2", "pr")` | `r sota_m_of("banksim", "tabiclv2", "r1")` | `r sota_m_of("banksim", "tabiclv2", "r5")` | `r sota_m_of("banksim", "tabiclv2", "roc")` |
-| | External [@hirnschall2025logsig_bayesian_gan_fraud] | 0.772 | | | |
-| paysim | TabPFN v3 | `r sota_m_of("paysim", "tabpfn_3", "pr")` | `r sota_m_of("paysim", "tabpfn_3", "r1")` | `r sota_m_of("paysim", "tabpfn_3", "r5")` | `r sota_m_of("paysim", "tabpfn_3", "roc")` |
-| | TabICLv2 | `r sota_m_of("paysim", "tabiclv2", "pr")` | `r sota_m_of("paysim", "tabiclv2", "r1")` | `r sota_m_of("paysim", "tabiclv2", "r5")` | `r sota_m_of("paysim", "tabiclv2", "roc")` |
-| | External [@visbeek2023deep_symbolic_classification_fraud] | | | | |
-| fifar | TabPFN v3 | `r sota_m_of("fifar", "tabpfn_3", "pr")` | `r sota_m_of("fifar", "tabpfn_3", "r1")` | `r sota_m_of("fifar", "tabpfn_3", "r5")` | `r sota_m_of("fifar", "tabpfn_3", "roc")` |
-| | TabICLv2 | `r sota_m_of("fifar", "tabiclv2", "pr")` | `r sota_m_of("fifar", "tabiclv2", "r1")` | `r sota_m_of("fifar", "tabiclv2", "r5")` | `r sota_m_of("fifar", "tabiclv2", "roc")` |
-| | External [@alves2023fifar_learning_to_defer] | | | 0.579 | |
-| baf | TabPFN v3 | `r sota_m_of("baf", "tabpfn_3", "pr")` | `r sota_m_of("baf", "tabpfn_3", "r1")` | `r sota_m_of("baf", "tabpfn_3", "r5")` | `r sota_m_of("baf", "tabpfn_3", "roc")` |
-| | TabICLv2 | `r sota_m_of("baf", "tabiclv2", "pr")` | `r sota_m_of("baf", "tabiclv2", "r1")` | `r sota_m_of("baf", "tabiclv2", "r5")` | `r sota_m_of("baf", "tabiclv2", "roc")` |
-| | External [@jesus2022baf_arxiv] | | | 0.45 to 0.50 | |
+```{r}
+#| label: tbl-sota-comparison
+#| tbl-cap: "All collected ranking metrics for the two strongest TFMs in the best case scenarios from this study next to the best verified external figures. The eu_cc rows use the full-context protocol. A pooled predictions of the five-fold cross-validation described in the text. The values of the other datasets are seed-means of the stratified balanced context runs, whose 48,000 to 50,000-row context limit makes them conservative and should be rather considered as a lower bound for performance. Empty cells in the external rows are metrics the source does not report. For example, recall at a fixed FPR appears in no verified source on eu_cc, banksim or paysim. Furthermore, paysim's only sound external figure is a thresholded F1 of 0.82, not comparable to any column. The banksim source also reports its own deviation of ± 0.010."
 
-: All collected ranking metrics for the two strongest TFMs in the best case scenarios from this study next to the best verified external figures. The eu_cc rows use the full-context protocol. A pooled predictions of the five-fold cross-validation described in the text. The values of the other datasets are seed-means of the stratified balanced context runs, whose 48,000 to 50,000-row context limit makes them conservative and should be rather considered as a lower bound for performance. Empty cells in the external rows are metrics the source does not report. For example, recall at a fixed FPR appears in no verified source on eu_cc, banksim or paysim. Furthermore, paysim's only sound external figure is a thresholded F1 of 0.82, not comparable to any column. The banksim source also reports its own deviation of $\pm$ 0.010. {#tbl-sota-comparison}
+# tinytable emits native Typst (booktabs) instead of the heavy full-grid a
+# markdown pipe table renders in this template. External-row citations are
+# built per format: native #cite() in the PDF, an anchor link in the HTML.
+is_typ_sota <- identical(knitr::pandoc_to(), "typst")
+ext_model <- function(key) {
+  if (is_typ_sota) sprintf('External #cite(label("%s"))', key)
+  else sprintf('<a href="#ref-%s">External</a>', key)
+}
+mrow <- function(ds, m) c(sota_m_of(ds, m, "pr"), sota_m_of(ds, m, "r1"),
+                          sota_m_of(ds, m, "r5"), sota_m_of(ds, m, "roc"))
+prow <- function(m) c(sota_pool_of(m, "ap"), sota_pool_of(m, "r1"),
+                      sota_pool_of(m, "r5"), sota_pool_of(m, "roc"))
+
+sota_disp <- tibble::tribble(
+  ~grp,      ~Model,
+  "eu_cc",   "TabPFN v3",
+  "eu_cc",   "TabICLv2",
+  "eu_cc",   ext_model("andradearenas2025smote_credit_card_comparison"),
+  "banksim", "TabPFN v3",
+  "banksim", "TabICLv2",
+  "banksim", ext_model("hirnschall2025logsig_bayesian_gan_fraud"),
+  "paysim",  "TabPFN v3",
+  "paysim",  "TabICLv2",
+  "paysim",  ext_model("visbeek2023deep_symbolic_classification_fraud"),
+  "fifar",   "TabPFN v3",
+  "fifar",   "TabICLv2",
+  "fifar",   ext_model("alves2023fifar_learning_to_defer"),
+  "baf",     "TabPFN v3",
+  "baf",     "TabICLv2",
+  "baf",     ext_model("jesus2022baf_arxiv"),
+)
+sota_vals <- rbind(
+  prow("tabpfn_3"), prow("tabiclv2"),          c("0.871", "", "", "0.978"),
+  mrow("banksim", "tabpfn_3"), mrow("banksim", "tabiclv2"), c("0.772", "", "", ""),
+  mrow("paysim", "tabpfn_3"),  mrow("paysim", "tabiclv2"),  c("", "", "", ""),
+  mrow("fifar", "tabpfn_3"),   mrow("fifar", "tabiclv2"),   c("", "", "0.579", ""),
+  mrow("baf", "tabpfn_3"),     mrow("baf", "tabiclv2"),     c("", "", "0.45 to 0.50", "")
+)
+# Typst reads a bare "@" as a label reference, so escape it in the PDF headers.
+colnames(sota_vals) <- if (is_typ_sota) {
+  c("PR-AUC", "R\\@1%FPR", "R\\@5%FPR", "ROC-AUC")
+} else {
+  c("PR-AUC", "R@1%FPR", "R@5%FPR", "ROC-AUC")
+}
+
+sota_groups <- as.list(match(unique(sota_disp$grp), sota_disp$grp))
+names(sota_groups) <- unique(sota_disp$grp)
+
+cbind(sota_disp["Model"], sota_vals) |>
+  tt() |>
+  group_tt(i = sota_groups) |>
+  style_tt(j = 2:5, align = "r") |>
+  style_tt(i = "groupi", bold = TRUE)
+```
 
 The EU credit card datasets comparison is the closest to like-for-like, since both report PR-AUC over the full ULB dataset at its natural class prevalence. On this dataset we therefore report the full-context protocol. A stratified five-fold cross-validation over all 284,807 rows, with the entire training fold of about `r sota_ctx` rows as the context and an ensemble size of 12.  Pooling the fold predictions, so that each of the `r sota_nfraud` frauds is scored exactly once, TabPFN v3 at the natural in-context fraud ratio reaches a PR-AUC of `r sota_pool_of("tabpfn_3", "ap")`, with a stratified bootstrap 95 % confidence interval of `r sota_pool_of("tabpfn_3", "lo")` to `r sota_pool_of("tabpfn_3", "hi")`. TabICLv2 reaches a pooled PR-AUC of `r sota_pool_of("tabiclv2", "ap")`, with an interval of `r sota_pool_of("tabiclv2", "lo")` to `r sota_pool_of("tabiclv2", "hi")`, nominally ahead of TabPFN v3. The SOTA results from literature are 0.871 for a tuned random forest and 0.867 for XGBoost [@andradearenas2025smote_credit_card_comparison]. Another benchmark without resampling corroborates that level with a kNN PR-AUC of 0.867 $\pm$ 0.033 under repeated cross-validation [@brownlee2020imbalanced_creditcard_tutorial]. Our point values are nominally the highest of these figures, but both confidence intervals comfortably contain the external points. Results can be interpreted that the zero-shot TFMs match the verified state of the art on this dataset, not that they beat it. A second arm that tops the context fraud share up to 2 % by duplication averages `r fmt3(sota_cv_of("tabpfn_3", "ratio_0.02", "pr"))` for TabPFN v3 and `r fmt3(sota_cv_of("tabiclv2", "ratio_0.02", "pr"))` for TabICLv2 over the folds, no better than the natural ratio for either model, consistent with the duplication penalty of @sec-results-rq2.
 

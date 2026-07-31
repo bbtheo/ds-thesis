@@ -44,17 +44,51 @@ The literature also predicts Multiple ways how retrieval can fail when the minor
 
 The previously reviewed methods can be organised along five orthogonal axes of test-time context construction: relevance (random or kNN selection), balance (natural or tuned class ratio), granularity (one global context or a context per group of test points), replacement (unique rows or sampling with replacement) and selection mode (mixed or class-conditional retrieval). The experiments of this thesis compare four conditions along these axes, defined fully in @sec-methods-conditions: a random context, a balanced random context, a kNN-retrieved context and the full RAP configuration. @tbl-rw-taxonomy collects the conditions and the reviewed methods together to a legitable table.
 
-| Method | Relevance | Balance | Granularity | Replacement | Selection mode |
-|:---|---|---|---|---|---|
-| Random (this thesis) | random | natural | global | unique | mixed |
-| Stratified (this thesis) | random | tuned | global | unique | mixed |
-| kNN (this thesis) | kNN | natural | per-group | unique | mixed |
-| RAP (this thesis) | kNN | tuned | per-group | with replacement | class-conditional |
-| [[LoCalPFN](#ref-thomas2024localpfn_retrieval_finetuning), [TabDPT](#ref-ma2024tabdpt)]{.content-visible when-format="html"}[LoCalPFN [-@thomas2024localpfn_retrieval_finetuning], TabDPT [-@ma2024tabdpt]]{.content-visible unless-format="html"} | kNN | natural | per-query | unique | mixed |
-| [[AWARE](#ref-pham2026aware)]{.content-visible when-format="html"}[AWARE [-@pham2026aware]]{.content-visible unless-format="html"} | learned | imbalance-aware | per-query | unique | mixed |
-| [[IM-Context](#ref-nejjar2024im_context)]{.content-visible when-format="html"}[IM-Context [-@nejjar2024im_context]]{.content-visible unless-format="html"} | density-based | inverse-density | per-query | unique | mixed |
-| @mcdowell2026correcting_imbalance_pfn | random | post-hoc threshold | global | unique | mixed |
-| [[DistPFN](#ref-lee2026distpfn_label_shift_tabpfn)]{.content-visible when-format="html"}[DistPFN [-@lee2026distpfn_label_shift_tabpfn]]{.content-visible unless-format="html"} | random | post-hoc analytic | global | unique | mixed |
+```{r}
+#| label: tbl-rw-taxonomy
+#| tbl-cap: "Test-time context construction methods positioned along the five taxonomy axes. Method names link to the corresponding references. LoCalPFN and TabDPT additionally fine-tune the model, and LoCalPFN's frozen retrieval-only arm is the published precedent closest to the plain kNN retrieval condition of this thesis."
+#| message: false
+library(tinytable)
 
-: Test-time context construction methods positioned along the five taxonomy axes. Method names link to the corresponding references. LoCalPFN and TabDPT additionally fine-tune the model, and LoCalPFN's frozen retrieval-only arm is the published precedent closest to the plain kNN retrieval condition of this thesis. {#tbl-rw-taxonomy}
+# tinytable emits native Typst (booktabs style) and raw HTML, so the method
+# column is built per format: Typst native #cite() calls in the PDF and
+# clickable anchor links in the HTML, matching the citation style each format
+# uses elsewhere. A markdown pipe table here rendered with a heavy full grid.
+is_typ <- identical(knitr::pandoc_to(), "typst")
+yr <- function(key, text) {
+  if (is_typ) sprintf('%s (#cite(label("%s"), form: "year"))', text, key)
+  else sprintf('<a href="#ref-%s">%s</a>', key, text)
+}
+
+method <- c(
+  "Random (this thesis)",
+  "Stratified (this thesis)",
+  "kNN (this thesis)",
+  "RAP (this thesis)",
+  paste0(yr("thomas2024localpfn_retrieval_finetuning", "LoCalPFN"), ", ",
+         yr("ma2024tabdpt", "TabDPT")),
+  yr("pham2026aware", "AWARE"),
+  yr("nejjar2024im_context", "IM-Context"),
+  if (is_typ) '#cite(label("mcdowell2026correcting_imbalance_pfn"), form: "prose")'
+  else '<a href="#ref-mcdowell2026correcting_imbalance_pfn">McDowell et al.</a>',
+  yr("lee2026distpfn_label_shift_tabpfn", "DistPFN")
+)
+
+data.frame(
+  Method = method,
+  Relevance = c("random", "random", "kNN", "kNN", "kNN", "learned",
+                "density-based", "random", "random"),
+  Balance = c("natural", "tuned", "natural", "tuned", "natural",
+              "imbalance-aware", "inverse-density", "post-hoc threshold",
+              "post-hoc analytic"),
+  Granularity = c("global", "global", "per-group", "per-group", "per-query",
+                  "per-query", "per-query", "global", "global"),
+  Replacement = c("unique", "unique", "unique", "with replacement", "unique",
+                  "unique", "unique", "unique", "unique"),
+  `Selection mode` = c("mixed", "mixed", "mixed", "class-conditional", "mixed",
+                       "mixed", "mixed", "mixed", "mixed"),
+  check.names = FALSE
+) |>
+  tt(width = c(0.20, 0.13, 0.13, 0.15, 0.15, 0.14))
+```
 
