@@ -246,17 +246,17 @@ stopifnot(sota_pool$lo[sota_pool$model == "tabpfn_3"] < ext_eucc,
   - The publicly available benchmark datasets used here are already heavily oversampled relative to production.
 - Evaluation must concentrate on the minority class performance
   - Main evaluation metrics used in this thesis are PR-AUC and recall at fixed FPR.
-  - Full dataset accuracy is meaningless at this scale of class imbalance.
+  - Full dataset accuracy is meaningles at this scale of class imbalance.
 
 ## Wasting the context window
 
 Naïve strategy would be to use a uniform random subsample. When the dataset is too large to fit in one pass.
 
 - Number of expected fraud rows in a context size $B$ with prevalence $\pi$ is $\pi B$.
-- EU credit-card data, $\pi = 0.17\ \%$, $B = 10\text{" "}000$: about 17 fraud rows.
+- EU credit-card data, $\pi = 0.0017$, $B = 10\text{ }000$ expacted number is about 17 fraud rows
 - At production prevalences woudl be even worse
 
-A randomly chosen  context has two deficiencies:
+A randomly chosen  context has two problems:
 
 1. **Irrelevance** Most slots go to rows that say little about the transactions being scored.
 2. **Class imbalance** The few fraud rows are too small a sample to characterise fraud from.
