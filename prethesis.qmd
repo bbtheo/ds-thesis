@@ -1,0 +1,29 @@
+---
+title: "Test-Time Context Construction for Tabular Foundation Models under Extreme Class Imbalance"
+subtitle: "Retrieval and class-ratio control in financial fraud detection"
+author: Theo Blauberg
+date: "2026-09-19"
+format: typst
+---
+
+## Description of the Thesis
+
+Topic of this thesis is to study how well novel TFMs work in finding fraudulend transactions when comparing them to the current state of the art models. Financial fraud detection is a tricky problem for algorithmic solutions as they face two primary difficulties. The first is class imbalance, fraudulent transactions are only a small fraction of all transactions. The second is the changing modus operandi of fraud. Detection is a two-actor system in which fraudsters abandon attack patterns as the detection systems learn them. This second problem is out of scope for this thesis, as there are no open datasets that have long running fraud trends.
+
+Tabular foundation models (TFMs) have recently matched and exceeded gradient-boosted decision trees on tabular classification tasks. These models predict by conditioning on a labelled context at inference time rather than by training a model per dataset or so called in-context learning. That means that the information the model uses for prediction must fit into its context window. When the amount of the data that exceeds the context budget, some of it must be disgarded. 
+
+When these models operate under heavy class imbalance, the way their limited context is filled is a modelling decision that has a major impact how the models. Using the naïve method of uniform random subsampling brings two unique deficiencies. Firstly, most of the rows of both classes may not  carry much information about the particular transactions being scored. Additionally, the few fraud rows that do enter the context form too small a sample for the model to infer the characteristics needed to spot the fraudulent transactions. These two deficiencies, irrelevance and class imbalance, will structure the experimental design of this thesis.
+
+Having characterised the two candidate deficiencies with a naïve constext construction. This thesis proposes and evaluates a novel method of Retrieval-Augmented Prediction (RAP). Which is a test-time strategy that retrieves a structurally similar context by k-nearest-neighbour search and rebalances it to a controlled fraud ratio. Additionally, this thesis will decompose its effect into the two levers through the new methods could improve the predictive performance. These levers are tested by the following four research questions. 
+
+**Research question 1.** How do tabular foundation models, restricted to a randomly subsampled context, compare with gradient-boosted decision trees trained on the full training data?
+
+**Research question 2.** Does controlling the fraud ratio of the context improve foundation-model performance over the natural ratio, and if so, is there an optimal ratio?
+
+**Research question 3.** Does filling the context with retrieved rows that are structurally similar to the scored transactions improve performance over a random context?
+
+**Research question 4.** How do the two channels interact, does combining retrieval with ratio control add anything beyond either lever alone?
+
+To answer these questions five different TFMs and two gradient-boosted baseline models will be evaluated on five publicly available fraud datasets with fraud rates ranging from 0.13 to 1.5 percentages. Using prevalence-corrected PR-AUC and recall at fixed false-positive rates as the key performance metrics. 
+
+This thesis aims to bring forth two novel contributions. Studying the feasebility of using TFMs in fraud detection context. In addition, the thesis will provide more information on how the context creation will affect performance of TFMs in prediction tasks with extreme class imbalance. These findings could also be applicable in other domains outside fraud detection, such as other financial crime detection and health care.
