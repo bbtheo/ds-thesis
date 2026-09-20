@@ -122,6 +122,10 @@ class TabPFNModel:
             )
         self._ensure_model()
         self._model.fit(X_ctx, y_ctx)
+        # Kept for the decoder readout (see ``readout``): the readout's weight
+        # columns index rows of the context in fit order.
+        self.X_ctx_ = X_ctx
+        self.y_ctx_ = y_ctx
         return self
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
@@ -132,6 +136,43 @@ class TabPFNModel:
         if self.device == "cuda":
             torch.cuda.empty_cache()
         return np.asarray(proba)
+
+    def readout(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Decoder-head attention weights of each test row over the context rows.
+
+        Wraps ``tabpfn_extensions.interpretability.get_decoder_readout`` (needs
+        ``tabpfn>=8.4`` and ``tabpfn-extensions``, i.e. the separate readout
+        environment, NOT the grid environment pinned at 8.0.8). Only the v3
+        architecture exposes the ``ManyClassDecoder`` this reads from.
+
+        Returns ``(weights, ctx_idx)``: ``weights[i, j]`` is the attention test
+        row ``i`` pays to context row ``ctx_idx[j]`` of the arrays passed to
+        ``fit`` (non-negative, rows sum to 1, averaged over heads and ensemble
+        members). Summing ``weights`` over the fraud context rows gives the
+        model's pre-temperature fraud vote. The extension materialises an
+        ``(n_test, n_ctx)`` matrix per ensemble member, so call it on chunks
+        of a few hundred rows against a 50k context.
+        """
+        assert self._model is not None, "Call fit() before readout()"
+        if self.version != "3":
+            raise NotImplementedError(
+                f"Decoder readout exists only for the TabPFN v3 architecture "
+                f"(got version {self.version!r})."
+            )
+        try:
+            from tabpfn_extensions.interpretability import get_decoder_readout
+        except ImportError as err:
+            raise RuntimeError(
+                "Decoder readout needs tabpfn>=8.4 and tabpfn-extensions. They are "
+                "deliberately absent from the grid environment (tabpfn 8.0.8); run "
+                "scripts/run_readout.py from the separate readout venv instead."
+            ) from err
+        import torch
+
+        weights, ctx_idx = get_decoder_readout(self._model, X)
+        if self.device == "cuda":
+            torch.cuda.empty_cache()
+        return np.asarray(weights, dtype=np.float32), np.asarray(ctx_idx)
 
 
 # ---------------------------------------------------------------------------

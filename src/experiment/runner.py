@@ -300,7 +300,13 @@ def _predict_proba_batched(model, X: np.ndarray, batch_size: int = 512) -> np.nd
 # Main run function
 # ---------------------------------------------------------------------------
 
-def run(cfg: dict, data: tuple | None = None) -> Path:
+def run(
+    cfg: dict,
+    data: tuple | None = None,
+    *,
+    results_dir: Path | None = None,
+    preds_dir: Path | None = None,
+) -> Path:
     """
     Execute one experiment run defined by cfg.
 
@@ -310,19 +316,47 @@ def run(cfg: dict, data: tuple | None = None) -> Path:
     seeded split for this dataset+seed (the same arrays ``run`` would have loaded);
     test subsampling is applied here, deterministically from the seed.
 
+    ``results_dir`` overrides the module-level ``RESULTS_DIR`` for BOTH the
+    idempotency skip-check and the metrics write. It exists so a study can
+    re-execute a cell that the formal grid already holds (the runner would
+    otherwise skip it) and park its metrics row elsewhere, without touching
+    ``results/runs``.
+
+    ``preds_dir``, when given, additionally persists the per-row test scores to
+    ``preds_dir/{run_id}.parquet`` (one row per SCORED test row, in scored-array
+    order, which is deterministic given the seed). Needed by downstream analyses
+    that ask questions the aggregate metrics cannot answer (e.g. per-fraud score
+    percentiles in the confidence appendix).
+
+    Neither argument enters ``_canonical_config``/``config_hash``: they change
+    where output goes, never what is computed, so a run written here carries the
+    SAME run_id as its formal-grid counterpart and the two are directly comparable.
+
     Returns the path to the written parquet file, or the existing path if
     the run was already complete (idempotent).
     """
+    results_root = RESULTS_DIR if results_dir is None else Path(results_dir)
     # Validate the RAW cfg first: canonicalisation nulls stray factors (e.g. a
     # fraud_ratio passed with C3), so validating after it would let those slip
     # through silently — the exact mistake the fraud_ratio guard is meant to catch.
     _validate_config(cfg)
     cfg = _canonical_config(cfg)
     run_id = config_hash(cfg)
-    out_path = RESULTS_DIR / f"{run_id}.parquet"
+    out_path = results_root / f"{run_id}.parquet"
 
     if out_path.exists():
-        print(f"[runner] SKIP {run_id} — already exists ({out_path})")
+        print(f"[runner] SKIP {run_id} — already exists ({out_path})", flush=True)
+        # Preds are written after the metrics row, so an existing row with no
+        # preds file means either a run completed WITHOUT preds_dir or a crash
+        # between the two writes. Either way this call produces no preds and the
+        # caller must clear the row to regenerate — say so instead of returning
+        # silently.
+        if preds_dir is not None and not (Path(preds_dir) / f"{run_id}.parquet").exists():
+            print(
+                f"[runner] WARNING: skipped, but no preds file at "
+                f"{Path(preds_dir) / f'{run_id}.parquet'} — delete {out_path} to regenerate",
+                flush=True,
+            )
         return out_path
 
     print(f"[runner] START {run_id} | {cfg['dataset']} × {cfg['model']} × {cfg['condition']} × seed={cfg['seed']}")
@@ -569,13 +603,34 @@ def run(cfg: dict, data: tuple | None = None) -> Path:
         "inference_s":      inference_s,
     }
 
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    results_root.mkdir(parents=True, exist_ok=True)
     # Coerce the C3/C4-only columns to explicit nullable dtypes so a None row
     # (GBDT/C1/C2) still serialises as int64/double rather than Arrow `null`.
     # Otherwise an all-None single-row column becomes type `null`, which fails to
     # unify with the int64/double C3/C4 rows under a naive arrow::open_dataset.
     df = pd.DataFrame([row]).astype({"n_groups": "Int64", "group_silhouette": "float64"})
     df.to_parquet(out_path, index=False)
+
+    # Optional per-row prediction dump (opt-in via preds_dir; off by default so
+    # every existing caller writes exactly what it always did). `row_idx` indexes
+    # the SCORED test arrays (post negative-subsampling), whose order is fixed by
+    # the seed, so the same run_id always yields the same row_idx → row mapping.
+    # dataset/model/condition/seed are repeated per row so downstream analysis can
+    # concatenate the files without joining back to the metrics rows.
+    if preds_dir is not None:
+        preds_dir = Path(preds_dir)
+        preds_dir.mkdir(parents=True, exist_ok=True)
+        preds_path = preds_dir / f"{run_id}.parquet"
+        pd.DataFrame({
+            "row_idx":   np.arange(len(y_test_scored), dtype=np.int64),
+            "y_true":    np.asarray(y_test_scored, dtype=np.int8),
+            "score":     np.asarray(probs, dtype=np.float64),
+            "dataset":   cfg["dataset"],
+            "model":     cfg["model"],
+            "condition": cfg["condition"],
+            "seed":      cfg["seed"],
+        }).to_parquet(preds_path, index=False)
+        print(f"[runner] preds → {preds_path} ({len(y_test_scored)} rows)", flush=True)
 
     print(
         f"[runner] DONE  {run_id} | "

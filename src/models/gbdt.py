@@ -108,10 +108,14 @@ class CatBoostModel:
         self.random_seed = random_seed
         # CatBoost 1.2.10 SIGSEGVs in its TBB thread pool during long fits
         # (2000 iters) on large training sets — reproducibly on paysim (~5M rows)
-        # at the default thread count, killing the whole process. CatBoost CPU
-        # training is thread-count-invariant (verified: tc=1 vs tc=24 give
-        # bit-identical predictions), so thread_count=1 avoids the race with NO
-        # change to results — it is just slower on the largest datasets.
+        # at the default thread count, killing the whole process. thread_count=1
+        # avoids the race at the cost of speed on the largest datasets. It is
+        # NOT fully result-neutral: tc=1 vs tc=24 are bit-identical on eu_cc
+        # and banksim but differ slightly on fifar/baf (cause not isolated):
+        # |dPR-AUC| <= 1e-3, |drecall@FPR| <= 0.0063 at seed 42
+        # (verified 2026-09-19). The formal-grid catboost rows for all datasets
+        # except paysim were fitted at 24 threads before this pin; each thread
+        # count is deterministic on its own.
         self.thread_count = thread_count
         self._model = None
 

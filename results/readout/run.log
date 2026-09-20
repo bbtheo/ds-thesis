@@ -1,0 +1,76 @@
+[readout] tabpfn 8.5.0, tabpfn-extensions 0.6.2
+[readout] loaded eu_cc seed 42 in 0s
+[readout] eu_cc C1: scored=56962 readout_subset=2098 (fraud=98, legit=2000)
+  [predict] batch 10/56 | 107s elapsed | ETA 491s
+  [predict] batch 20/56 | 213s elapsed | ETA 383s
+  [predict] batch 30/56 | 319s elapsed | ETA 276s
+  [predict] batch 40/56 | 425s elapsed | ETA 170s
+  [predict] batch 50/56 | 531s elapsed | ETA 64s
+  [predict] batch 56/56 | 594s elapsed | ETA 0s
+  [group 0] rows=56962 readout=2098 ctx_fraud=78 (unique=78) 649s
+[readout] eu_cc C1: pr_auc=0.8424 r@1=0.9082 r@5=0.9184 wall=649s
+[readout] wrote results/readout/eu_cc_C1.parquet
+[readout] eu_cc C2: scored=56962 readout_subset=2098 (fraud=98, legit=2000)
+  [predict] batch 10/56 | 106s elapsed | ETA 489s
+  [predict] batch 20/56 | 213s elapsed | ETA 383s
+  [predict] batch 30/56 | 319s elapsed | ETA 276s
+  [predict] batch 40/56 | 425s elapsed | ETA 170s
+  [predict] batch 50/56 | 531s elapsed | ETA 64s
+  [predict] batch 56/56 | 594s elapsed | ETA 0s
+  [group 0] rows=56962 readout=2098 ctx_fraud=5000 (unique=394) 649s
+[readout] eu_cc C2: pr_auc=0.8640 r@1=0.9082 r@5=0.9490 wall=649s
+[readout] wrote results/readout/eu_cc_C2.parquet
+[readout] eu_cc C4: scored=56962 readout_subset=2098 (fraud=98, legit=2000)
+[readout] C4 grouping G=9 silhouette=0.0920
+  [predict] batch 10/13 | 106s elapsed | ETA 32s
+  [predict] batch 13/13 | 138s elapsed | ETA 0s
+  [group 0] rows=12469 readout=459 ctx_fraud=5000 (unique=394) 149s
+  [predict] batch 4/4 | 42s elapsed | ETA 0s
+  [group 1] rows=4054 readout=166 ctx_fraud=5000 (unique=394) 53s
+  [predict] batch 1/1 | 10s elapsed | ETA 0s
+  [group 2] rows=603 readout=17 ctx_fraud=5000 (unique=394) 21s
+  [predict] batch 10/12 | 106s elapsed | ETA 21s
+  [predict] batch 12/12 | 127s elapsed | ETA 0s
+  [group 3] rows=11880 readout=442 ctx_fraud=5000 (unique=394) 138s
+  [predict] batch 10/17 | 106s elapsed | ETA 74s
+  [predict] batch 17/17 | 180s elapsed | ETA 0s
+  [group 4] rows=16773 readout=595 ctx_fraud=5000 (unique=394) 202s
+  [predict] batch 10/10 | 106s elapsed | ETA 0s
+  [group 5] rows=10046 readout=335 ctx_fraud=5000 (unique=394) 117s
+  [predict] batch 1/1 | 11s elapsed | ETA 0s
+  [group 6] rows=827 readout=30 ctx_fraud=5000 (unique=394) 21s
+  [predict] batch 1/1 | 10s elapsed | ETA 0s
+  [group 7] rows=254 readout=11 ctx_fraud=5000 (unique=394) 21s
+  [predict] batch 1/1 | 10s elapsed | ETA 0s
+  [group 8] rows=56 readout=43 ctx_fraud=5000 (unique=394) 21s
+[readout] eu_cc C4: pr_auc=0.7576 r@1=0.8571 r@5=0.9286 wall=748s
+[readout] wrote results/readout/eu_cc_C4.parquet
+[readout] loaded banksim seed 42 in 1s
+[readout] banksim C1: scored=31441 readout_subset=3441 (fraud=1441, legit=2000)
+  [predict] batch 10/31 | 94s elapsed | ETA 198s
+  [predict] batch 20/31 | 189s elapsed | ETA 104s
+  [predict] batch 30/31 | 283s elapsed | ETA 9s
+  [predict] batch 31/31 | 292s elapsed | ETA 0s
+  [group 0] rows=31441 readout=3441 ctx_fraud=599 (unique=599) 361s
+[readout] banksim C1: pr_auc=0.9027 r@1=0.9327 r@5=0.9924 wall=361s
+[readout] wrote results/readout/banksim_C1.parquet
+[readout] banksim C2: scored=31441 readout_subset=3441 (fraud=1441, legit=2000)
+  [predict] batch 10/31 | 94s elapsed | ETA 198s
+  [predict] batch 20/31 | 188s elapsed | ETA 104s
+  [predict] batch 30/31 | 282s elapsed | ETA 9s
+  [predict] batch 31/31 | 292s elapsed | ETA 0s
+  [group 0] rows=31441 readout=3441 ctx_fraud=5000 (unique=5000) 361s
+[readout] banksim C2: pr_auc=0.9028 r@1=0.9355 r@5=0.9972 wall=361s
+[readout] wrote results/readout/banksim_C2.parquet
+[readout] banksim C4: scored=31441 readout_subset=3441 (fraud=1441, legit=2000)
+[readout] C4 grouping G=2 silhouette=0.8573
+  [predict] batch 10/31 | 94s elapsed | ETA 198s
+  [predict] batch 20/31 | 188s elapsed | ETA 104s
+  [predict] batch 30/31 | 283s elapsed | ETA 9s
+  [predict] batch 31/31 | 292s elapsed | ETA 0s
+  [group 0] rows=31362 readout=3362 ctx_fraud=5000 (unique=5000) 361s
+  [predict] batch 1/1 | 9s elapsed | ETA 0s
+  [group 1] rows=79 readout=79 ctx_fraud=5000 (unique=5000) 19s
+[readout] banksim C4: pr_auc=0.1542 r@1=0.0000 r@5=0.6232 wall=383s
+[readout] wrote results/readout/banksim_C4.parquet
+exit=0
